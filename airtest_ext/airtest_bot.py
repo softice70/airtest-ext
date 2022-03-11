@@ -44,7 +44,7 @@ class AirtestBot:
             self._start_mitmproxy()
 
         self.init()
-        self._main_script()
+        self.main_script()
         self.uninit()
 
         if self._debug:
@@ -116,5 +116,5 @@ class AirtestBot:
                     return
 
     @abstractmethod
-    def _main_script(self, **kwargs):
+    def main_script(self, **kwargs):
         pass

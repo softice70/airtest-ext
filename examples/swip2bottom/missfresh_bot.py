@@ -12,14 +12,13 @@ class MissfreshBot(AirtestBot):
         self._on_request_func = None
         self._on_response_func = self._on_response
 
-    def _main_script(self, **kwargs):
-        search_words = ["香蕉", "奶油草莓"]
+    def main_script(self, **kwargs):
+        search_words = ["奶油草莓", "香蕉"]
         # script content
         print("start...")
         for w in search_words:
             # 打开搜索页
             self._open_search_page()
-
             self._search(w)
             sleep(3)
         print("mission accomplished!")
@@ -70,8 +69,6 @@ class MissfreshBot(AirtestBot):
         if not is_success:
             print('the End.')
         return is_success
-
-
 
 
 if __name__ == "__main__":

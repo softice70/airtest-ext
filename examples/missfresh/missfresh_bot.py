@@ -12,8 +12,8 @@ class MissfreshBot(AirtestBot):
         self._on_request_func = None
         self._on_response_func = self._on_response
 
-    def _main_script(self, **kwargs):
-        search_words = ["苹果", "香蕉", "草莓"]
+    def main_script(self, **kwargs):
+        search_words = ["奶油草莓", "香蕉"]
         # script content
         print("start...")
         for w in search_words:
@@ -49,8 +49,10 @@ class MissfreshBot(AirtestBot):
         is_success, datas = self._get_ordered_data(10)
         # print(is_success, datas)
         wait(Template(r"tpl1646706830703.png", record_pos=(-0.411, 0.704), resolution=(1080, 1920)), 20)
-        swipe_search(Template(r"tpl1646721501254.png", record_pos=(-0.078, 0.434), resolution=(1080, 1920)),
-                     on_result=self._on_find_items, max_hit_count=10, step=0.5)
+        swipe_search(Template(r"tpl1646721501254.png", resolution=(1080, 1920)),
+                     bottom_v=Template(r"tpl1646988721772.png", resolution=(1080, 1920)),
+                     on_result=self._on_find_items, before_swipe=self._before_swipe_in_search_result,
+                     after_swipe=self._after_swipe_in_search_result, step=0.5, interval=0.5)
         keyevent("BACK")
 
     def _on_find_items(self, item):
@@ -58,6 +60,17 @@ class MissfreshBot(AirtestBot):
         touch_in(touch_pos, action=self._browse_item)
         sleep(2)
         return True
+
+    def _before_swipe_in_search_result(self):
+        # 订阅日志数据
+        self._order_data({"eventlog": r"https://dc-eventlog.missfresh.cn/"})
+        return True
+
+    def _after_swipe_in_search_result(self):
+        is_success, datas = self._get_ordered_data(5)
+        if not is_success:
+            print('the End.')
+        return is_success
 
     def _on_find_comment(self, item):
         touch_in(item['result'], action=self._browse_comment)
