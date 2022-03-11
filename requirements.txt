@@ -1,0 +1,3 @@
+airtest
+frida_hooks>=0.9.16
+mitmproxy>=7.0.0
