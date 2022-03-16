@@ -17,14 +17,14 @@ from airtest_ext.interceptor_mgr import InterceptorMgr
 
 
 class AirtestBot:
-    def __init__(self, device_id, app_name=None, debug=False):
+    def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False):
         self._device_id = device_id
         self._app_name = app_name
         self._on_request_func = None
         self._on_response_func = None
-        self._frida_agent = None
-        self._debug = debug
-        self._intercept_all = debug
+        self._frida_agent = FridaAgent()
+        self._start_mitmproxy_svr = start_mitmproxy
+        self._intercept_all = intercept_all
         self._mitmproxy_svr = None
         self._interceptor_id = None
         self._data_filters = {}
@@ -33,16 +33,15 @@ class AirtestBot:
         self._data_event = threading.Event()
 
     def init(self):
-        if not cli_setup():
-            auto_setup(__file__, logdir=False, devices=[
-                f"android://127.0.0.1:5037/{self._device_id}?cap_method=MINICAP&&ori_method=MINICAPORI&&touch_method=MINITOUCH", ])
+        if self._device_id == '':
+            self._frida_agent.init_device(self._device_id)
+            self._device_id = self._frida_agent.get_device_id()
+
+        auto_setup(__file__, logdir=False, devices=[
+            f"android://127.0.0.1:5037/{self._device_id}?cap_method=MINICAP&&ori_method=MINICAPORI&&touch_method=MINITOUCH", ])
 
         if self._app_name is not None:
-            self._frida_agent = FridaAgent()
-            self._frida_agent.init_device(self._device_id)
-            if self._frida_agent.start_frida_server() > 0:
-                if self._frida_agent.start_app(self._app_name, is_restart=True):
-                    self._frida_agent.move_to_foreground()
+            start_app(self._app_name)
 
         self._register_interceptor()
 
@@ -51,14 +50,14 @@ class AirtestBot:
         self._frida_agent.exit()
 
     def run(self, **kwargs):
-        if self._debug:
+        if self._start_mitmproxy_svr:
             self._start_mitmproxy()
 
         self.init()
         self.main_script(**kwargs)
         self.uninit()
 
-        if self._debug:
+        if self._start_mitmproxy_svr:
             self._stop_mitmproxy()
 
     def _start_mitmproxy(self):

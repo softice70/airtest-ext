@@ -1,7 +1,6 @@
 # -*- encoding=utf8 -*-
 
 from airtest_ext.utils import *
-from mitmproxy import http
 
 from airtest_ext.airtest_bot import AirtestBot
 
@@ -9,16 +8,18 @@ from airtest_ext.airtest_bot import AirtestBot
 # Todo: 处理wait抛异常的问题
 
 class MissfreshBot(AirtestBot):
-    def __init__(self, device_id, app_name=None, debug=False):
-        super(MissfreshBot, self).__init__(device_id, app_name=app_name, debug=debug)
+    def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False):
+        super(MissfreshBot, self).__init__(device_id=device_id, app_name=app_name, start_mitmproxy=start_mitmproxy, intercept_all=intercept_all)
         self._on_request_func = None
         self._on_response_func = self._on_response
+        self._on_result_callback = None
 
     def main_script(self, **kwargs):
-        search_words = ["奶油草莓", "香蕉"]
         # script content
         print("start...")
-        for w in search_words:
+        if "on_result" in kwargs:
+            self._on_result_callback = kwargs['on_result']
+        for w in kwargs["key_words"]:
             # 打开搜索页
             self._open_search_page()
             self._search(w)
@@ -49,6 +50,8 @@ class MissfreshBot(AirtestBot):
         # 获取返回结果
         is_success, datas = self._get_ordered_data(10)
         # print(is_success, datas)
+        if self._on_result_callback:
+            self._on_result_callback(datas)
         wait(Template(r"tpl1646706830703.png", record_pos=(-0.411, 0.704), resolution=(1080, 1920)), 20)
         swipe_search(Template(r"tpl1646721501254.png", resolution=(1080, 1920)),
                      bottom_v=Template(r"tpl1646988721772.png", resolution=(1080, 1920)),
@@ -74,7 +77,7 @@ class MissfreshBot(AirtestBot):
 
 
 if __name__ == "__main__":
-    worker = MissfreshBot("QEYGK17707000044", app_name="每日优鲜", debug=True)
-    worker.run()
+    worker = MissfreshBot(app_name="cn.missfresh.application", start_mitmproxy=True, intercept_all=True)
+    worker.run(key_words=["奶油草莓", "香蕉"])
 
 
