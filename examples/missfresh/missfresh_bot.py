@@ -7,8 +7,8 @@ from airtest_ext.airtest_bot import AirtestBot
 
 
 class MissfreshBot(AirtestBot):
-    def __init__(self, device_id, debug=False):
-        super(MissfreshBot, self).__init__(device_id, debug=debug)
+    def __init__(self, device_id, app_name=None, debug=False):
+        super(MissfreshBot, self).__init__(device_id, app_name=app_name, debug=debug)
         self._on_request_func = None
         self._on_response_func = self._on_response
 
@@ -101,7 +101,7 @@ class MissfreshBot(AirtestBot):
 
 
 if __name__ == "__main__":
-    worker = MissfreshBot("QEYGK17707000044", debug=True)
+    worker = MissfreshBot("QEYGK17707000044", app_name="每日优鲜", debug=True)
     worker.run()
 
 

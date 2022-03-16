@@ -10,16 +10,19 @@ from airtest_ext.utils import *
 from mitmproxy import http
 from airtest_ext.mitmproxy_svr import MitmDumpThread
 from abc import abstractmethod
+from frida_hooks.agent import FridaAgent
 from frida_hooks.utils import get_host
 
 from airtest_ext.interceptor_mgr import InterceptorMgr
 
 
 class AirtestBot:
-    def __init__(self, device_id, debug=False):
+    def __init__(self, device_id, app_name=None, debug=False):
         self._device_id = device_id
+        self._app_name = app_name
         self._on_request_func = None
         self._on_response_func = None
+        self._frida_agent = None
         self._debug = debug
         self._intercept_all = debug
         self._mitmproxy_svr = None
@@ -30,21 +33,29 @@ class AirtestBot:
         self._data_event = threading.Event()
 
     def init(self):
-        self._register_interceptor()
-
-    def uninit(self):
-        self._unregister_interceptor()
-
-    def run(self):
         if not cli_setup():
             auto_setup(__file__, logdir=False, devices=[
                 f"android://127.0.0.1:5037/{self._device_id}?cap_method=MINICAP&&ori_method=MINICAPORI&&touch_method=MINITOUCH", ])
 
+        if self._app_name is not None:
+            self._frida_agent = FridaAgent()
+            self._frida_agent.init_device(self._device_id)
+            if self._frida_agent.start_frida_server() > 0:
+                if self._frida_agent.start_app(self._app_name, is_restart=True):
+                    self._frida_agent.move_to_foreground()
+
+        self._register_interceptor()
+
+    def uninit(self):
+        self._unregister_interceptor()
+        self._frida_agent.exit()
+
+    def run(self, **kwargs):
         if self._debug:
             self._start_mitmproxy()
 
         self.init()
-        self.main_script()
+        self.main_script(**kwargs)
         self.uninit()
 
         if self._debug:
