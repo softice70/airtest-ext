@@ -9,7 +9,8 @@ from airtest_ext.airtest_bot import AirtestBot
 
 class MissfreshBot(AirtestBot):
     def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False):
-        super(MissfreshBot, self).__init__(device_id=device_id, app_name=app_name, start_mitmproxy=start_mitmproxy, intercept_all=intercept_all)
+        super(MissfreshBot, self).__init__(device_id=device_id, app_name=app_name, start_mitmproxy=start_mitmproxy,
+                                           intercept_all=intercept_all)
         self._on_request_func = None
         self._on_response_func = self._on_response
         self._on_result_callback = None
@@ -53,10 +54,10 @@ class MissfreshBot(AirtestBot):
         if self._on_result_callback:
             self._on_result_callback(datas)
         wait(Template(r"tpl1646706830703.png", record_pos=(-0.411, 0.704), resolution=(1080, 1920)), 20)
-        swipe_search(Template(r"tpl1646721501254.png", resolution=(1080, 1920)),
-                     bottom_v=Template(r"tpl1646988721772.png", resolution=(1080, 1920)),
-                     on_result=self._on_find_items, before_swipe=self._before_swipe_in_search_result,
-                     after_swipe=self._after_swipe_in_search_result, step=0.5, interval=0.5)
+        swipe(Template(r"tpl1646721501254.png", resolution=(1080, 1920)), search_mode=True,
+              bottom_v=Template(r"tpl1646988721772.png", resolution=(1080, 1920)),
+              on_result=self._on_find_items, before_swipe=self._before_swipe_in_search_result,
+              after_swipe=self._after_swipe_in_search_result, step=0.5, interval=0.5)
         keyevent("BACK")
 
     def _on_find_items(self, item):
@@ -79,5 +80,3 @@ class MissfreshBot(AirtestBot):
 if __name__ == "__main__":
     worker = MissfreshBot(app_name="cn.missfresh.application", start_mitmproxy=True, intercept_all=True)
     worker.run(key_words=["奶油草莓", "香蕉"])
-
-

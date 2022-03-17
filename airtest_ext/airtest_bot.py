@@ -5,7 +5,6 @@
 import re
 
 import threading
-from airtest.cli.parser import cli_setup
 from airtest_ext.utils import *
 from mitmproxy import http
 from airtest_ext.mitmproxy_svr import MitmDumpThread
@@ -14,12 +13,14 @@ from frida_hooks.agent import FridaAgent
 from frida_hooks.utils import get_host
 
 from airtest_ext.interceptor_mgr import InterceptorMgr
+import logging
 
 
 class AirtestBot:
-    def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False):
+    def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False, log_level=logging.WARN):
         self._device_id = device_id
         self._app_name = app_name
+        self._log_level = log_level
         self._on_request_func = None
         self._on_response_func = None
         self._frida_agent = FridaAgent()
@@ -52,6 +53,10 @@ class AirtestBot:
     def run(self, **kwargs):
         if self._start_mitmproxy_svr:
             self._start_mitmproxy()
+
+        # 设置日志级别
+        logger = logging.getLogger("airtest")
+        logger.setLevel(self._log_level)
 
         self.init()
         self.main_script(**kwargs)
