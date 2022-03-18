@@ -13,8 +13,6 @@ from airtest.core.helper import (G, delay_after_operation, import_device_cls,
 
 import math
 
-_current_level = 0
-
 
 def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swipe=None, after_swipe=None, on_result=None,
           step=0.15, max_hit_count=0, max_swipe_count=0, min_confidence=0.95, interval=1, **kwargs):
@@ -99,22 +97,21 @@ def wait(v, timeout=None, interval=0.5, intervalfunc=None):
 def touch(v, times=1, auto_back=False, action=None, **kwargs):
     pos = touch_core(v, times=times, **kwargs)
     if action is not None:
-        increase_level(value=1)
         if action():
             if auto_back:
                 go_back()
         else:
             print(f"Failed to touch in [{v}]!")
     else:
-        increase_level(value=1)
         if auto_back:
             go_back()
     return pos
 
 
-def go_back():
+def go_back(action=None):
+    if action is not None:
+        action()
     keyevent("BACK")
-    increase_level(value=-1)
 
 
 def find_image(v, min_confidence=0.95):
@@ -147,16 +144,3 @@ def _is_pos_exists(pos, pos_list, swipe_v=0, min_error=20):
     return is_exists
 
 
-def set_level(level):
-    global _current_level
-    _current_level = level
-
-
-def get_level(level):
-    global _current_level
-    return _current_level
-
-
-def increase_level(value=1):
-    global _current_level
-    _current_level += value

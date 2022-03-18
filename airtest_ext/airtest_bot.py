@@ -32,8 +32,10 @@ class AirtestBot:
         self._datas = {}
         self._lock = threading.RLock()
         self._data_event = threading.Event()
+        self._page_paths = []
 
     def init(self):
+        self._reset_page_path()
         if self._device_id == '':
             self._frida_agent.init_device(self._device_id)
             self._device_id = self._frida_agent.get_device_id()
@@ -41,7 +43,7 @@ class AirtestBot:
         auto_setup(__file__, logdir=False, devices=[
             f"android://127.0.0.1:5037/{self._device_id}?cap_method=MINICAP&&ori_method=MINICAPORI&&touch_method=MINITOUCH", ])
 
-        if self._app_name is not None:
+        if self._app_name is not None and self._app_name != '':
             start_app(self._app_name)
 
         self._register_interceptor()
@@ -49,6 +51,7 @@ class AirtestBot:
     def uninit(self):
         self._unregister_interceptor()
         self._frida_agent.exit()
+        self._reset_page_path()
 
     def run(self, **kwargs):
         if self._start_mitmproxy_svr:
@@ -64,6 +67,10 @@ class AirtestBot:
 
         if self._start_mitmproxy_svr:
             self._stop_mitmproxy()
+
+    @abstractmethod
+    def main_script(self, **kwargs):
+        pass
 
     def _start_mitmproxy(self):
         self._mitmproxy_svr = MitmDumpThread("mitmdump", debug=True)
@@ -130,6 +137,18 @@ class AirtestBot:
                     self._data_event.set()
                     return
 
-    @abstractmethod
-    def main_script(self, **kwargs):
-        pass
+    def _print_page_path(self):
+        print(f"path: {' >> '.join(self._page_paths)}")
+
+    def _in_page(self, page):
+        self._page_paths.append(page)
+        self._print_page_path()
+
+    def _out_page(self):
+        self._page_paths.pop()
+        self._print_page_path()
+
+    def _reset_page_path(self):
+        self._page_paths = []
+
+
