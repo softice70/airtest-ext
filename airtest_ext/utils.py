@@ -1,10 +1,11 @@
 #! /usr/bin/python
 # -*-coding: UTF-8 -*-
 
+import time
 from airtest.core.api import init_device, connect_device, device, set_current, auto_setup, shell, start_app, stop_app, \
     clear_app, install, uninstall, snapshot, wake, home, touch as touch_core, double_click, swipe as swipe_core, pinch, keyevent, \
     text, sleep, wait as wait_core, exists as exists_core, find_all, assert_exists, assert_not_exists, assert_equal, assert_not_equal
-from airtest.core.cv import Template, loop_find, try_log_screen
+from airtest.core.cv import Template, loop_find as loop_find_core, try_log_screen
 from airtest.core.error import TargetNotFoundError
 from airtest.core.settings import Settings as ST
 from airtest.utils.compat import script_log_dir
@@ -14,8 +15,21 @@ from airtest.core.helper import (G, delay_after_operation, import_device_cls,
 import math
 
 
+# Todo: 增加长期订阅数据、支持数据回调
+
+
+# 回首页首屏
+def goto_home_page(feature, threshold=0.95, home_anchor=None):
+    # 判断是否在首页
+    while not exists(feature, timeout=5, threshold=threshold):
+        if home_anchor is not None and exists(home_anchor, timeout=1):
+            touch(home_anchor)
+        else:
+            go_back()
+
+
 def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swipe=None, after_swipe=None, on_result=None,
-          step=0.15, max_hit_count=0, max_swipe_count=0, min_confidence=0.95, interval=1, **kwargs):
+          step=0.15, max_error_rate=None, max_hit_count=0, max_swipe_count=0, min_confidence=0.95, interval=1, **kwargs):
     if search_mode:
         screen_width, screen_height = device().get_current_resolution()
         start_pt = (screen_width * 0.5, screen_height * 0.75)
@@ -29,7 +43,8 @@ def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swip
         while max_swipe_count == 0 or swipe_count < max_swipe_count:
             pos_info = find_image(v, min_confidence)
             bottom_pos_info = None if bottom_v is None else find_image(bottom_v, min_confidence)
-            new_items = _get_new_item(pos_info, last_pos_info, bottom_pos_info, end_pt[1] - start_pt[1])
+            new_items = _get_new_item(pos_info, last_pos_info, bottom_pos_info, end_pt[1] - start_pt[1], max_error_rate=max_error_rate)
+            # print(end_pt[1] - start_pt[1], last_pos_info, pos_info, new_items)
             if on_result is not None:
                 for item in new_items:
                     if max_hit_count == 0 or hit_count < max_hit_count:
@@ -57,7 +72,7 @@ def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swip
         return swipe_core(v, v2=v2, vector=vector, **kwargs)
 
 
-def exists(v, timeout=None, interval=0.5, intervalfunc=None):
+def exists(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
     """
     Check whether given target exists on device screen
 
@@ -83,15 +98,83 @@ def exists(v, timeout=None, interval=0.5, intervalfunc=None):
     """
     try:
         timeout = timeout or ST.FIND_TIMEOUT
-        pos = loop_find(v, timeout=timeout, interval=interval, intervalfunc=intervalfunc)
+        match_info = loop_find(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
     except TargetNotFoundError:
         return False
     else:
-        return pos
+        return match_info
 
 
-def wait(v, timeout=None, interval=0.5, intervalfunc=None):
-    return exists(v, timeout=timeout, interval=interval, intervalfunc=intervalfunc)
+def loop_find(query, timeout=ST.FIND_TIMEOUT, threshold=None, interval=0.5, intervalfunc=None):
+    """
+    Search for image template in the screen until timeout
+
+    Args:
+        query: image template to be found in screenshot
+        timeout: time interval how long to look for the image template
+        threshold: default is None
+        interval: sleep interval before next attempt to find the image template
+        intervalfunc: function that is executed after unsuccessful attempt to find the image template
+
+    Raises:
+        TargetNotFoundError: when image template is not found in screenshot
+
+    Returns:
+        TargetNotFoundError if image template not found, otherwise returns the position where the image template has
+        been found in screenshot
+
+    """
+    G.LOGGING.info("Try finding: %s", query)
+    start_time = time.time()
+    while True:
+        match_info = find_in_screen(query, threshold=threshold)
+        if match_info:
+            return match_info
+
+        if intervalfunc is not None:
+            intervalfunc()
+
+        # 超时则raise，未超时则进行下次循环:
+        if (time.time() - start_time) > timeout:
+            raise TargetNotFoundError('Picture %s not found in screen' % query)
+        else:
+            time.sleep(interval)
+
+
+def find_in_screen(query, screen=None, threshold=None):
+    if screen is None:
+        screen = G.DEVICE.snapshot(filename=None, quality=ST.SNAPSHOT_QUALITY)
+        if screen is None:
+            G.LOGGING.warning("Screen is None, may be locked")
+            return False
+
+    if isinstance(query, list):
+        for v in query:
+            match_info = find_in_screen(v, screen=screen, threshold=threshold)
+            if match_info:
+                return match_info
+        return False
+    elif isinstance(query, tuple):
+        ret = {"items": []}
+        for v in query:
+            match_info = find_in_screen(v, screen=screen, threshold=threshold)
+            if not match_info:
+                return False
+            else:
+                ret['items'].append(match_info)
+        return ret
+    else:
+        if threshold:
+            query.threshold = threshold
+        match_info = query.match_in(screen)
+        if match_info:
+            return {"pos": match_info, "item": query}
+        else:
+            return False
+
+
+def wait(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
+    return exists(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
 
 
 def touch(v, times=1, auto_back=False, action=None, **kwargs):
@@ -124,21 +207,22 @@ def find_image(v, min_confidence=0.95):
     return pos_info
 
 
-def _get_new_item(pos_info, last_pos_info, bottom_pos_info, swipe_v):
+def _get_new_item(pos_info, last_pos_info, bottom_pos_info, swipe_v, max_error_rate=None):
     results = []
     for i in pos_info:
-        if not _is_pos_exists(i, last_pos_info, swipe_v):
+        if not _is_pos_exists(i, last_pos_info, swipe_v, max_error_rate=max_error_rate):
             if bottom_pos_info is None or len(bottom_pos_info) == 0 or i['result'][1] < bottom_pos_info[0]['result'][1]:
                 results.append(i)
     return results
 
 
-def _is_pos_exists(pos, pos_list, swipe_v=0, min_error=20):
+def _is_pos_exists(pos, pos_list, swipe_v=0, max_error_rate=None):
     is_exists = False
     if pos_list is not None:
+        max_error = math.fabs(swipe_v * (max_error_rate or 0.1))
         for i in pos_list:
-            if math.fabs(i['result'][0] - pos['result'][0]) <= min_error and math.fabs(
-                    i['result'][1] + swipe_v - pos['result'][1]) <= min_error:
+            if math.fabs(i['result'][0] - pos['result'][0]) <= max_error and math.fabs(
+                    i['result'][1] + swipe_v - pos['result'][1]) <= max_error:
                 is_exists = True
                 break
     return is_exists

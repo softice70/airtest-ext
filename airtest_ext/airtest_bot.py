@@ -123,6 +123,7 @@ class AirtestBot:
                     with self._lock:
                         self._data_filters = {}
                         self._datas = {}
+                    print(f'get data timeout: {data_type}')
                     return False, datas
 
     def _on_response(self, flow: http.HTTPFlow):

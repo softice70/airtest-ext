@@ -4,8 +4,6 @@ from airtest_ext.utils import *
 from airtest_ext.airtest_bot import AirtestBot
 
 
-# Todo: 处理wait抛异常的问题
-
 class MissfreshBot(AirtestBot):
     def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False):
         super(MissfreshBot, self).__init__(device_id=device_id, app_name=app_name, start_mitmproxy=start_mitmproxy,
@@ -20,62 +18,46 @@ class MissfreshBot(AirtestBot):
         if "on_result" in kwargs:
             self._on_result_callback = kwargs['on_result']
         for w in kwargs["key_words"]:
+            # 回首页首屏
+            goto_home_page(Template(r"tpl1646907287539.png", record_pos=(-0.401, 0.708), resolution=(1080, 1920)),
+                           home_anchor=Template(r"tpl1646705391402.png", record_pos=(-0.4, 0.708),
+                                                resolution=(1080, 1920)))
             # 打开搜索页
-            if self._open_search_page():
-                self._search(w)
-            else:
-                print("无法打开搜索页面！")
-                break
+            touch(Template(r"tpl1646706111089.png", record_pos=(-0.404, -0.635), resolution=(1080, 1920)),
+                  auto_back=True, action=lambda: self._search(w))
         print("mission accomplished!")
 
-    def _open_search_page(self):
-        if not exists(Template(r"tpl1646705253477.png", record_pos=(-0.381, -0.616), resolution=(1080, 1920)),
-                      timeout=10):
-            # 判断是否在首页
-            while not exists(Template(r"tpl1646907287539.png", record_pos=(-0.401, 0.708), resolution=(1080, 1920)),
-                             timeout=10):
-                if exists(Template(r"tpl1646705391402.png", record_pos=(-0.4, 0.708), resolution=(1080, 1920)),
-                          timeout=1):
-                    touch(Template(r"tpl1646705391402.png", record_pos=(-0.4, 0.708), resolution=(1080, 1920)))
-                else:
-                    go_back()
-
-            touch(Template(r"tpl1646706111089.png", record_pos=(-0.404, -0.635), resolution=(1080, 1920)))
-            if exists(Template(r"tpl1646705253477.png", record_pos=(-0.381, -0.616), resolution=(1080, 1920)),
-                      timeout=10):
-                self._in_page('search')
-                return True
-            else:
-                return False
-        else:
-            self._in_page('search')
-            return True
-
     def _search(self, word):
-        touch(Template(r"tpl1646706453615.png", record_pos=(-0.34, -0.741), resolution=(1080, 1920)))
-        text(word)
-        # 订阅搜索数据
-        self._order_data({"search": r"https://as-vip.missfresh.cn/as/item/search/getResult"})
-        touch(Template(r"tpl1646706478582.png", record_pos=(0.359, -0.74), resolution=(1080, 1920)))
+        if exists(Template(r"tpl1647593766971.png", record_pos=(-0.382, -0.259), resolution=(1080, 1920)),
+                  timeout=10):
+            self._in_page('search')
+            touch(Template(r"tpl1646706453615.png", record_pos=(-0.34, -0.741), resolution=(1080, 1920)))
+            text(word)
+            # 订阅搜索数据
+            self._order_data({"search": r"https://as-vip.missfresh.cn/as/item/search/getResult"})
+            touch(Template(r"tpl1646706478582.png", record_pos=(0.359, -0.74), resolution=(1080, 1920)))
 
-        # 获取返回结果
-        is_success, datas = self._get_ordered_data(10)
-        if is_success:
-            if self._on_result_callback:
-                self._on_result_callback(datas)
-            if exists(Template(r"tpl1646706830703.png", record_pos=(-0.411, 0.704), resolution=(1080, 1920)),
-                      timeout=20):
-                sleep(5)
-                self._in_page('search_result')
-                swipe(Template(r"tpl1646721501254.png", resolution=(1080, 1920)), search_mode=True,
-                      bottom_v=Template(r"tpl1646988721772.png", resolution=(1080, 1920)),
-                      on_result=self._on_find_items, before_swipe=self._before_swipe_in_search_result,
-                      after_swipe=self._after_swipe_in_search_result, step=0.5, interval=0.5)
+            # 获取返回结果
+            is_success, datas = self._get_ordered_data(10)
+            if is_success:
+                if self._on_result_callback:
+                    self._on_result_callback(datas)
+                if exists(Template(r"tpl1646706830703.png", record_pos=(-0.411, 0.704), resolution=(1080, 1920)),
+                          timeout=20):
+                    sleep(5)
+                    self._in_page('search_result')
+                    swipe(Template(r"tpl1646721501254.png", resolution=(1080, 1920)), search_mode=True,
+                          bottom_v=Template(r"tpl1646988721772.png", resolution=(1080, 1920)),
+                          on_result=self._on_find_items, before_swipe=self._before_swipe_in_search_result,
+                          after_swipe=self._after_swipe_in_search_result, step=0.5, interval=0.5)
+                else:
+                    print("没有发现搜索结果页页面特征！")
             else:
-                print("没有发现搜索结果页页面特征！")
+                print("没有获得搜索结果！")
+            return True
         else:
-            print("没有获得搜索结果！")
-        go_back(lambda: self._out_page())
+            print("没有进入搜索页！")
+            return False
 
     def _on_find_items(self, item):
         touch_pos = (item['result'][0] - 200, item['result'][1])
