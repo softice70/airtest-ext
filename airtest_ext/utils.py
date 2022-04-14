@@ -199,9 +199,7 @@ def find_best_in_screen(query, screen=None, threshold=None):
         if threshold:
             query.threshold = threshold
         ret = query.match_best_in(screen)
-        with _lock:
-            for key in _debuggers.keys():
-                _debuggers[key].on_debug_event('match_best_in', data=ret)
+        _set_debug_event('match_best_in', data=ret)
         return ret if ret['results'] is not None else False
 
 
@@ -215,9 +213,7 @@ def find_all_in_screen(v, screen=None, threshold=None):
     if threshold:
         v.threshold = threshold
     ret = v.match_all_in(screen)
-    with _lock:
-        for key in _debuggers.keys():
-            _debuggers[key].on_debug_event('match_all_in', data=ret)
+    _set_debug_event('match_all_in', data=ret)
     return ret
 
 
@@ -274,3 +270,9 @@ def _is_pos_exists(pos, pos_list, swipe_v=0, max_error_rate=None):
                 is_exists = True
                 break
     return is_exists
+
+
+def _set_debug_event(event, data=None):
+    with _lock:
+        for key in _debuggers.keys():
+            _debuggers[key].on_debug_event(event, data)

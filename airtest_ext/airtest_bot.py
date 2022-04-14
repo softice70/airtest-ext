@@ -3,9 +3,7 @@
 # airtest 机器人框架
 #
 import re
-
-import threading
-
+import inspect
 from airtest_ext.debug_wnd import DebugWindow
 from airtest_ext.utils import *
 from mitmproxy import http
@@ -36,7 +34,7 @@ class AirtestBot:
         self._lock = threading.RLock()
         self._data_event = threading.Event()
         self._page_paths = []
-        self._dbg_wnd = None
+        self._dbg_wnd = DebugWindow()
         self._show_dbg_wnd = show_dbg_wnd
 
     def init(self):
@@ -68,7 +66,6 @@ class AirtestBot:
 
         self.init()
         if self._show_dbg_wnd:
-            self._dbg_wnd = DebugWindow()
             register_debugger('debug_window', self._dbg_wnd)
             bot_thread = threading.Thread(name='airtest bot thread', target=self.run_bot, kwargs=kwargs)
             self._dbg_wnd.set_threads([bot_thread])
@@ -86,7 +83,7 @@ class AirtestBot:
         DebugWindow.stop_dearpygui()
 
     def _dbg_pause(self):
-        if self._dbg_wnd:
+        if self._show_dbg_wnd:
             self._dbg_wnd.dbg_halt()
 
     @abstractmethod
