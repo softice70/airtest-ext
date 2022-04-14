@@ -5,6 +5,8 @@
 import re
 
 import threading
+
+from airtest_ext.debug_wnd import DebugWindow
 from airtest_ext.utils import *
 from mitmproxy import http
 from airtest_ext.mitmproxy_svr import MitmDumpThread
@@ -17,7 +19,8 @@ import logging
 
 
 class AirtestBot:
-    def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False, log_level=logging.WARN):
+    def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False, show_dbg_wnd=False,
+                 log_level=logging.WARN):
         self._device_id = device_id
         self._app_name = app_name
         self._log_level = log_level
@@ -33,6 +36,8 @@ class AirtestBot:
         self._lock = threading.RLock()
         self._data_event = threading.Event()
         self._page_paths = []
+        self._dbg_wnd = None
+        self._show_dbg_wnd = show_dbg_wnd
 
     def init(self):
         self._reset_page_path()
@@ -62,11 +67,27 @@ class AirtestBot:
         logger.setLevel(self._log_level)
 
         self.init()
-        self.main_script(**kwargs)
+        if self._show_dbg_wnd:
+            self._dbg_wnd = DebugWindow()
+            register_debugger('debug_window', self._dbg_wnd)
+            bot_thread = threading.Thread(name='airtest bot thread', target=self.run_bot, kwargs=kwargs)
+            self._dbg_wnd.set_threads([bot_thread])
+            self._dbg_wnd.run()
+            unregister_debugger('debug_window')
+        else:
+            self.main_script(**kwargs)
         self.uninit()
 
         if self._start_mitmproxy_svr:
             self._stop_mitmproxy()
+
+    def run_bot(self, **kwargs):
+        self.main_script(**kwargs)
+        DebugWindow.stop_dearpygui()
+
+    def _dbg_pause(self):
+        if self._dbg_wnd:
+            self._dbg_wnd.dbg_halt()
 
     @abstractmethod
     def main_script(self, **kwargs):
@@ -85,9 +106,11 @@ class AirtestBot:
         if self._on_response_func is None:
             if len(self._data_filters) > 0:
                 self._on_response_func = self._on_response
-            self._interceptor_id = InterceptorMgr.register_interceptor(self._on_request_func, self._on_response_func, ip=ip, intercept_all=self._intercept_all)
+            self._interceptor_id = InterceptorMgr.register_interceptor(self._on_request_func, self._on_response_func,
+                                                                       ip=ip, intercept_all=self._intercept_all)
         else:
-            self._interceptor_id = InterceptorMgr.register_interceptor(self._on_request_func, self._on_response_func, ip=ip, intercept_all=self._intercept_all)
+            self._interceptor_id = InterceptorMgr.register_interceptor(self._on_request_func, self._on_response_func,
+                                                                       ip=ip, intercept_all=self._intercept_all)
 
     def _unregister_interceptor(self):
         InterceptorMgr.unregister_interceptor(self._interceptor_id)
@@ -99,7 +122,7 @@ class AirtestBot:
                 if data_type not in self._datas:
                     self._datas[data_type] = []
             self._data_event.clear()
-            
+
     def _get_ordered_data(self, timeout=None):
         while True:
             datas = []
@@ -151,5 +174,4 @@ class AirtestBot:
 
     def _reset_page_path(self):
         self._page_paths = []
-
 

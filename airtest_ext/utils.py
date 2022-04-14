@@ -2,20 +2,49 @@
 # -*-coding: UTF-8 -*-
 
 import time
+import threading
 from airtest.core.api import init_device, connect_device, device, set_current, auto_setup, shell, start_app, stop_app, \
-    clear_app, install, uninstall, snapshot, wake, home, touch as touch_core, double_click, swipe as swipe_core, pinch, keyevent, \
-    text, sleep, wait as wait_core, exists as exists_core, find_all, assert_exists, assert_not_exists, assert_equal, assert_not_equal
-from airtest.core.cv import Template, loop_find as loop_find_core, try_log_screen
+    clear_app, install, uninstall, snapshot, wake, home, touch as touch_core, double_click, swipe as swipe_core, pinch, \
+    keyevent, text, sleep, wait as wait_core, exists as exists_core, find_all, assert_exists, assert_not_exists, \
+    assert_equal, assert_not_equal
+from airtest.core.cv import Template as TemplateBase, loop_find as loop_find_core, try_log_screen
 from airtest.core.error import TargetNotFoundError
 from airtest.core.settings import Settings as ST
 from airtest.utils.compat import script_log_dir
 from airtest.core.helper import (G, delay_after_operation, import_device_cls,
                                  logwrap, set_logdir, using, log)
+from airtest_ext.template import Template
 
 import math
 
 
 # Todo: 增加长期订阅数据、支持数据回调
+# Todo: 支持区域匹配
+# Todo: 撰写文档
+
+
+# 注册的调试器
+_debuggers = {}
+_lock = threading.RLock()
+
+
+# 注册调试器
+def register_debugger(name, debugger):
+    with _lock:
+        if name not in _debuggers:
+            _debuggers[name] = debugger
+            return True
+        else:
+            return False
+
+
+def unregister_debugger(name):
+    with _lock:
+        if name in _debuggers:
+            del _debuggers[name]
+            return True
+        else:
+            return False
 
 
 # 回首页首屏
@@ -28,8 +57,9 @@ def goto_home_page(feature, threshold=0.95, home_anchor=None):
             go_back()
 
 
-def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swipe=None, after_swipe=None, on_result=None,
-          step=0.15, max_error_rate=None, max_hit_count=0, max_swipe_count=0, min_confidence=0.95, interval=1, **kwargs):
+def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swipe=None, after_swipe=None,
+          on_result=None, step=0.15, max_error_rate=None, max_hit_count=0, max_swipe_count=0, min_confidence=0.95, interval=1,
+          **kwargs):
     if search_mode:
         screen_width, screen_height = device().get_current_resolution()
         start_pt = (screen_width * 0.5, screen_height * 0.75)
@@ -41,9 +71,10 @@ def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swip
 
         sleep(interval)
         while max_swipe_count == 0 or swipe_count < max_swipe_count:
-            pos_info = find_image(v, min_confidence)
-            bottom_pos_info = None if bottom_v is None else find_image(bottom_v, min_confidence)
-            new_items = _get_new_item(pos_info, last_pos_info, bottom_pos_info, end_pt[1] - start_pt[1], max_error_rate=max_error_rate)
+            pos_info = find_all_in_screen(v, threshold=min_confidence)['results']
+            bottom_pos_info = None if bottom_v is None else find_all_in_screen(bottom_v, threshold=min_confidence)['results']
+            new_items = _get_new_item(pos_info, last_pos_info, bottom_pos_info, end_pt[1] - start_pt[1],
+                                      max_error_rate=max_error_rate)
             # print(end_pt[1] - start_pt[1], last_pos_info, pos_info, new_items)
             if on_result is not None:
                 for item in new_items:
@@ -98,14 +129,14 @@ def exists(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
     """
     try:
         timeout = timeout or ST.FIND_TIMEOUT
-        match_info = loop_find(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
+        match_info = loop_find_best(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
     except TargetNotFoundError:
         return False
     else:
         return match_info
 
 
-def loop_find(query, timeout=ST.FIND_TIMEOUT, threshold=None, interval=0.5, intervalfunc=None):
+def loop_find_best(query, timeout=ST.FIND_TIMEOUT, threshold=None, interval=0.5, intervalfunc=None):
     """
     Search for image template in the screen until timeout
 
@@ -127,7 +158,7 @@ def loop_find(query, timeout=ST.FIND_TIMEOUT, threshold=None, interval=0.5, inte
     G.LOGGING.info("Try finding: %s", query)
     start_time = time.time()
     while True:
-        match_info = find_in_screen(query, threshold=threshold)
+        match_info = find_best_in_screen(query, threshold=threshold)
         if match_info:
             return match_info
 
@@ -141,7 +172,8 @@ def loop_find(query, timeout=ST.FIND_TIMEOUT, threshold=None, interval=0.5, inte
             time.sleep(interval)
 
 
-def find_in_screen(query, screen=None, threshold=None):
+def find_best_in_screen(query, screen=None, threshold=None):
+    global _lock
     if screen is None:
         screen = G.DEVICE.snapshot(filename=None, quality=ST.SNAPSHOT_QUALITY)
         if screen is None:
@@ -150,15 +182,15 @@ def find_in_screen(query, screen=None, threshold=None):
 
     if isinstance(query, list):
         for v in query:
-            match_info = find_in_screen(v, screen=screen, threshold=threshold)
+            match_info = find_best_in_screen(v, screen=screen, threshold=threshold)
             if match_info:
                 return match_info
         return False
     elif isinstance(query, tuple):
         ret = {"items": []}
         for v in query:
-            match_info = find_in_screen(v, screen=screen, threshold=threshold)
-            if not match_info:
+            match_info = find_best_in_screen(v, screen=screen, threshold=threshold)
+            if match_info:
                 return False
             else:
                 ret['items'].append(match_info)
@@ -166,28 +198,52 @@ def find_in_screen(query, screen=None, threshold=None):
     else:
         if threshold:
             query.threshold = threshold
-        match_info = query.match_in(screen)
-        if match_info:
-            return {"pos": match_info, "item": query}
-        else:
+        ret = query.match_best_in(screen)
+        with _lock:
+            for key in _debuggers.keys():
+                _debuggers[key].on_debug_event('match_best_in', data=ret)
+        return ret if ret['results'] is not None else False
+
+
+def find_all_in_screen(v, screen=None, threshold=None):
+    if screen is None:
+        screen = G.DEVICE.snapshot(filename=None, quality=ST.SNAPSHOT_QUALITY)
+        if screen is None:
+            G.LOGGING.warning("Screen is None, may be locked")
             return False
+
+    if threshold:
+        v.threshold = threshold
+    ret = v.match_all_in(screen)
+    with _lock:
+        for key in _debuggers.keys():
+            _debuggers[key].on_debug_event('match_all_in', data=ret)
+    return ret
 
 
 def wait(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
     return exists(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
 
 
-def touch(v, times=1, auto_back=False, action=None, **kwargs):
-    pos = touch_core(v, times=times, **kwargs)
-    if action is not None:
-        if action():
+def touch(v, times=1, auto_back=False, action=None, timeout=ST.FIND_TIMEOUT, **kwargs):
+    if isinstance(v, Template):
+        match_result = exists(v, timeout=timeout)
+        pos = match_result['pos'] if match_result else None
+    else:
+        pos = v
+    if pos is not None:
+        touch_core(pos, times=times, **kwargs)
+        if action is not None:
+            if action():
+                if auto_back:
+                    go_back()
+            else:
+                print(f"Failed to touch in [{v}]!")
+        else:
             if auto_back:
                 go_back()
-        else:
-            print(f"Failed to touch in [{v}]!")
     else:
-        if auto_back:
-            go_back()
+        print(f"Failed to touch at pos:[{v}]!")
     return pos
 
 
@@ -195,24 +251,16 @@ def go_back(action=None):
     if action is not None:
         action()
     keyevent("BACK")
-
-
-def find_image(v, min_confidence=0.95):
-    raw_info = find_all(v)
-    pos_info = []
-    if raw_info is not None:
-        for i in raw_info:
-            if i['confidence'] >= min_confidence:
-                pos_info.append(i)
-    return pos_info
+    sleep(0.5)
 
 
 def _get_new_item(pos_info, last_pos_info, bottom_pos_info, swipe_v, max_error_rate=None):
     results = []
-    for i in pos_info:
-        if not _is_pos_exists(i, last_pos_info, swipe_v, max_error_rate=max_error_rate):
-            if bottom_pos_info is None or len(bottom_pos_info) == 0 or i['result'][1] < bottom_pos_info[0]['result'][1]:
-                results.append(i)
+    if pos_info is not None:
+        for i in pos_info:
+            if not _is_pos_exists(i, last_pos_info, swipe_v, max_error_rate=max_error_rate):
+                if bottom_pos_info is None or len(bottom_pos_info) == 0 or i['result'][1] < bottom_pos_info[0]['result'][1]:
+                    results.append(i)
     return results
 
 
@@ -226,5 +274,3 @@ def _is_pos_exists(pos, pos_list, swipe_v=0, max_error_rate=None):
                 is_exists = True
                 break
     return is_exists
-
-

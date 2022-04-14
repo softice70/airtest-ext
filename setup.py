@@ -8,7 +8,7 @@
 from setuptools import setup
 
 setup(name = "airtest-ext",
-    version = "0.2.4",
+    version = "0.4.0",
     description = "An extension for airtest",
     author = "Ryan",
     author_email = "dawnsun@sina.com",
@@ -18,8 +18,9 @@ setup(name = "airtest-ext",
     entry_points = { },
     package_data={
       'airtest_ext': [
-          'cert/*.*'
+          'cert/*.*',
+          'resource/*.*'
       ],
     },
-    install_requires=['airtest', 'mitmproxy>=7.0.0', 'frida_hooks>=0.9.16']
+    install_requires=['airtest', 'mitmproxy>=7.0.0', 'frida_hooks>=0.9.16', 'dearpygui>=1.5']
 )
