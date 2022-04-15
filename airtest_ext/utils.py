@@ -3,6 +3,7 @@
 
 import time
 import threading
+import inspect
 from airtest.core.api import init_device, connect_device, device, set_current, auto_setup, shell, start_app, stop_app, \
     clear_app, install, uninstall, snapshot, wake, home, touch as touch_core, double_click, swipe as swipe_core, pinch, \
     keyevent, text, sleep, wait as wait_core, exists as exists_core, find_all, assert_exists, assert_not_exists, \
@@ -71,10 +72,12 @@ def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swip
 
         sleep(interval)
         while max_swipe_count == 0 or swipe_count < max_swipe_count:
+            _set_debug_event('api_start', data={'api': 'swipe', 'action': '滑动匹配(swipe)', 'status': '执行中...', 'has_sub_event': True})
             pos_info = find_all_in_screen(v, threshold=min_confidence)['results']
             bottom_pos_info = None if bottom_v is None else find_all_in_screen(bottom_v, threshold=min_confidence)['results']
             new_items = _get_new_item(pos_info, last_pos_info, bottom_pos_info, end_pt[1] - start_pt[1],
                                       max_error_rate=max_error_rate)
+            _set_debug_event('api_end', data={'api': 'swipe', 'status': f'结果:{len(new_items)}'})
             # print(end_pt[1] - start_pt[1], last_pos_info, pos_info, new_items)
             if on_result is not None:
                 for item in new_items:
@@ -92,15 +95,20 @@ def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swip
                 go_on = before_swipe()
                 if not go_on:
                     return
+            _set_debug_event('api_start', data={'api': 'swipe', 'action': '滑动(swipe)', 'status': '执行中...', 'has_sub_event': False})
             swipe_core(start_pt, v2=end_pt)
             sleep(interval)
+            _set_debug_event('api_end', data={'api': 'swipe', 'status': '完成'})
             swipe_count += 1
             if after_swipe is not None:
                 go_on = after_swipe()
                 if not go_on:
                     return
     else:
-        return swipe_core(v, v2=v2, vector=vector, **kwargs)
+        _set_debug_event('api_start', data={'api': 'swipe', 'action': '滑动(swipe)', 'status': '执行中...', 'has_sub_event': False})
+        ret = swipe_core(v, v2=v2, vector=vector, **kwargs)
+        _set_debug_event('api_end', data={'api': 'swipe', 'status': '完成'})
+        return ret
 
 
 def exists(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
@@ -128,11 +136,14 @@ def exists(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
 
     """
     try:
+        _set_debug_event('api_start', data={'api': 'exists', 'action': '判断是否存在(exists)', 'status': '执行中...', 'has_sub_event': True})
         timeout = timeout or ST.FIND_TIMEOUT
         match_info = loop_find_best(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
     except TargetNotFoundError:
+        _set_debug_event('api_end', data={'api': 'exists', 'status': '不存在'})
         return False
     else:
+        _set_debug_event('api_end', data={'api': 'exists', 'status': '存在'})
         return match_info
 
 
@@ -218,17 +229,25 @@ def find_all_in_screen(v, screen=None, threshold=None):
 
 
 def wait(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
-    return exists(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
+    _set_debug_event('api_start', data={'api': 'wait', 'action': '等待(wait)', 'status': '执行中...', 'has_sub_event': True})
+    ret = exists(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
+    _set_debug_event('api_end', data={'api': 'wait', 'status': ('成功' if ret else '超时')})
+    return ret
 
 
 def touch(v, times=1, auto_back=False, action=None, timeout=ST.FIND_TIMEOUT, **kwargs):
     if isinstance(v, Template):
+        _set_debug_event('api_start',
+                         data={'api': 'touch', 'action': '点击(touch)', 'status': '执行中...', 'has_sub_event': True})
         match_result = exists(v, timeout=timeout)
         pos = match_result['pos'] if match_result else None
     else:
+        _set_debug_event('api_start',
+                         data={'api': 'touch', 'action': '点击(touch)', 'status': '执行中...', 'has_sub_event': False})
         pos = v
     if pos is not None:
         touch_core(pos, times=times, **kwargs)
+        _set_debug_event('api_end', data={'api': 'touch', 'status': '完成'})
         if action is not None:
             if action():
                 if auto_back:
@@ -239,6 +258,7 @@ def touch(v, times=1, auto_back=False, action=None, timeout=ST.FIND_TIMEOUT, **k
             if auto_back:
                 go_back()
     else:
+        _set_debug_event('api_end', data={'api': 'touch', 'status': '失败'})
         print(f"Failed to touch at pos:[{v}]!")
     return pos
 
@@ -246,8 +266,10 @@ def touch(v, times=1, auto_back=False, action=None, timeout=ST.FIND_TIMEOUT, **k
 def go_back(action=None):
     if action is not None:
         action()
+    _set_debug_event('api_start', data={'api': 'go_back', 'action': '回退(go_back)', 'status': '执行中...', 'has_sub_event': False})
     keyevent("BACK")
     sleep(0.5)
+    _set_debug_event('api_end', data={'api': 'go_back', 'status': '完成'})
 
 
 def _get_new_item(pos_info, last_pos_info, bottom_pos_info, swipe_v, max_error_rate=None):
@@ -274,5 +296,7 @@ def _is_pos_exists(pos, pos_list, swipe_v=0, max_error_rate=None):
 
 def _set_debug_event(event, data=None):
     with _lock:
+        if data and isinstance(data, dict):
+            data['stack'] = inspect.stack()
         for key in _debuggers.keys():
             _debuggers[key].on_debug_event(event, data)
