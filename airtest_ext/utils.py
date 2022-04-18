@@ -58,7 +58,7 @@ def goto_home_page(feature, threshold=0.95, home_anchor=None):
             go_back()
 
 
-def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swipe=None, after_swipe=None,
+def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, in_rect=None, before_swipe=None, after_swipe=None,
           on_result=None, step=0.15, max_error_rate=None, max_hit_count=0, max_swipe_count=0, min_confidence=0.95, interval=1,
           **kwargs):
     if search_mode:
@@ -73,8 +73,8 @@ def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swip
         sleep(interval)
         while max_swipe_count == 0 or swipe_count < max_swipe_count:
             _set_debug_event('api_start', data={'api': 'swipe', 'action': '滑动匹配(swipe)', 'status': '执行中...', 'has_sub_event': True})
-            pos_info = find_all_in_screen(v, threshold=min_confidence)['results']
-            bottom_pos_info = None if bottom_v is None else find_all_in_screen(bottom_v, threshold=min_confidence)['results']
+            pos_info = find_all_in_screen(v, in_rect=in_rect, threshold=min_confidence)['results']
+            bottom_pos_info = None if bottom_v is None else find_all_in_screen(bottom_v, in_rect=in_rect, threshold=min_confidence)['results']
             new_items = _get_new_item(pos_info, last_pos_info, bottom_pos_info, end_pt[1] - start_pt[1],
                                       max_error_rate=max_error_rate)
             _set_debug_event('api_end', data={'api': 'swipe', 'status': f'结果:{len(new_items)}'})
@@ -111,7 +111,7 @@ def swipe(v, v2=None, vector=None, search_mode=False, bottom_v=None, before_swip
         return ret
 
 
-def exists(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
+def exists(v, in_rect=None, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
     """
     Check whether given target exists on device screen
 
@@ -138,7 +138,7 @@ def exists(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
     try:
         _set_debug_event('api_start', data={'api': 'exists', 'action': '判断是否存在(exists)', 'status': '执行中...', 'has_sub_event': True})
         timeout = timeout or ST.FIND_TIMEOUT
-        match_info = loop_find_best(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
+        match_info = loop_find_best(v, in_rect=in_rect, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
     except TargetNotFoundError:
         _set_debug_event('api_end', data={'api': 'exists', 'status': '不存在'})
         return False
@@ -147,7 +147,7 @@ def exists(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
         return match_info
 
 
-def loop_find_best(query, timeout=ST.FIND_TIMEOUT, threshold=None, interval=0.5, intervalfunc=None):
+def loop_find_best(query, in_rect=None, timeout=ST.FIND_TIMEOUT, threshold=None, interval=0.5, intervalfunc=None):
     """
     Search for image template in the screen until timeout
 
@@ -169,7 +169,7 @@ def loop_find_best(query, timeout=ST.FIND_TIMEOUT, threshold=None, interval=0.5,
     G.LOGGING.info("Try finding: %s", query)
     start_time = time.time()
     while True:
-        match_info = find_best_in_screen(query, threshold=threshold)
+        match_info = find_best_in_screen(query, in_rect=in_rect, threshold=threshold)
         if match_info:
             return match_info
 
@@ -183,7 +183,7 @@ def loop_find_best(query, timeout=ST.FIND_TIMEOUT, threshold=None, interval=0.5,
             time.sleep(interval)
 
 
-def find_best_in_screen(query, screen=None, threshold=None):
+def find_best_in_screen(query, screen=None, in_rect=None, threshold=None):
     global _lock
     if screen is None:
         screen = G.DEVICE.snapshot(filename=None, quality=ST.SNAPSHOT_QUALITY)
@@ -193,14 +193,14 @@ def find_best_in_screen(query, screen=None, threshold=None):
 
     if isinstance(query, list):
         for v in query:
-            match_info = find_best_in_screen(v, screen=screen, threshold=threshold)
+            match_info = find_best_in_screen(v, in_rect=in_rect, screen=screen, threshold=threshold)
             if match_info:
                 return match_info
         return False
     elif isinstance(query, tuple):
         ret = {"items": []}
         for v in query:
-            match_info = find_best_in_screen(v, screen=screen, threshold=threshold)
+            match_info = find_best_in_screen(v, in_rect=in_rect, screen=screen, threshold=threshold)
             if match_info:
                 return False
             else:
@@ -209,12 +209,12 @@ def find_best_in_screen(query, screen=None, threshold=None):
     else:
         if threshold:
             query.threshold = threshold
-        ret = query.match_best_in(screen)
+        ret = query.match_best_in(screen, in_rect=in_rect)
         _set_debug_event('match_best_in', data=ret)
         return ret if ret['results'] is not None else False
 
 
-def find_all_in_screen(v, screen=None, threshold=None):
+def find_all_in_screen(v, screen=None, in_rect=None, threshold=None):
     if screen is None:
         screen = G.DEVICE.snapshot(filename=None, quality=ST.SNAPSHOT_QUALITY)
         if screen is None:
@@ -223,7 +223,7 @@ def find_all_in_screen(v, screen=None, threshold=None):
 
     if threshold:
         v.threshold = threshold
-    ret = v.match_all_in(screen)
+    ret = v.match_all_in(screen, in_rect=in_rect)
     _set_debug_event('match_all_in', data=ret)
     return ret
 
