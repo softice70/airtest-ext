@@ -318,10 +318,8 @@ class DebugWindow(DpgApp):
                 dpg.add_draw_layer(tag="draw_matched_rect_layer_id", parent='test_draw_list_id')
             node = dpg.add_draw_node(parent="draw_matched_rect_layer_id")
             dpg.apply_transform(dpg.last_item(), dpg.create_translation_matrix([1, 1]))
-            base_x = 0 if self._selection is None else self._selection[0][0]
-            base_y = 0 if self._selection is None else self._selection[0][1]
-            pmin = (rect_info[0][0] / self._scale + base_x, rect_info[0][1] / self._scale + base_y)
-            pmax = (rect_info[2][0] / self._scale + base_x, rect_info[2][1] / self._scale + base_y)
+            pmin = (rect_info[0][0] / self._scale, rect_info[0][1] / self._scale)
+            pmax = (rect_info[2][0] / self._scale, rect_info[2][1] / self._scale)
             dpg.draw_rectangle(pmin, pmax, color=color, thickness=thickness, parent=node)
 
     def _draw_cross(self, center_pos, color=(22, 192, 255, 255)):
