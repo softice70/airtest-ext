@@ -82,14 +82,6 @@ class AirtestBot:
         self.main_script(**kwargs)
         DebugWindow.stop_dearpygui()
 
-    def _dbg_pause(self):
-        if self._show_dbg_wnd:
-            self._dbg_wnd.set_pause_flag(True)
-            self._dbg_wnd.on_debug_event('api_start', data={'api': 'dbg_pause', 'action': '暂停(dbg_pause)',
-                                                            'status': '暂停中...', 'has_sub_event': False,
-                                                            'stack': inspect.stack()})
-            self._dbg_wnd.on_debug_event('api_end', data={'api': 'dbg_pause', 'status': '完成'})
-
     @abstractmethod
     def main_script(self, **kwargs):
         pass

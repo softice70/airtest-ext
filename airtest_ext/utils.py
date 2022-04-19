@@ -20,7 +20,6 @@ import math
 
 
 # Todo: 增加长期订阅数据、支持数据回调
-# Todo: 支持区域匹配
 # Todo: 撰写文档
 
 
@@ -46,6 +45,12 @@ def unregister_debugger(name):
             return True
         else:
             return False
+
+
+# 调试接口：暂停
+def dbg_pause():
+    _set_debug_event('api_start', data={'api': 'dbg_pause', 'action': '暂停(dbg_pause)', 'status': '暂停中...', 'has_sub_event': False})
+    _set_debug_event('api_end', data={'api': 'dbg_pause', 'status': '完成'})
 
 
 # 回首页首屏
