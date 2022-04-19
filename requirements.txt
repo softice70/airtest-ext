@@ -1,3 +1,9 @@
-airtest
-frida_hooks>=0.9.16
-mitmproxy>=7.0.0
+airtest==1.2.4
+dearpygui==1.5.1
+frida_hooks==0.9.16
+mitmproxy==7.0.4
+numpy==1.19.3
+opencv_contrib_python==4.5.5.62
+Pillow==9.1.0
+pyperclip==1.8.2
+setuptools==58.0.4

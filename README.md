@@ -23,13 +23,19 @@ Airtest-ext
 ------------
 - Python 3.x 
 - airtest
+- opencv-python
 - mitmproxy
 - frida-hooks
+- Dear PyGui
+- pyperclip
 
 Thanks
 -------
 - [https://github.com/AirtestProject/Airtest](https://github.com/AirtestProject/Airtest)
+- [https://github.com/opencv/opencv-python](https://github.com/opencv/opencv-python)
 - [https://github.com/mitmproxy/mitmproxy](https://github.com/mitmproxy/mitmproxy)
+- [https://github.com/hoffstadt/DearPyGui](https://github.com/hoffstadt/DearPyGui)
+- [https://github.com/asweigart/pyperclip](https://github.com/asweigart/pyperclip)
 
 License
 -------
