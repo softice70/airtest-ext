@@ -61,7 +61,6 @@ class DpgApp:
 
     def _init(self):
         dpg.create_context()
-        # dpg.configure_app(manual_callback_management=True)
         self._init_font_registry()
         self._init_scheme()
 

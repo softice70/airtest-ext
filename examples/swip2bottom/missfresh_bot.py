@@ -55,7 +55,7 @@ class MissfreshBot(AirtestBot):
             self._on_result_callback(datas)
         wait(Template(r"tpl1646706830703.png", record_pos=(-0.411, 0.704), resolution=(1080, 1920)), 20)
         swipe(Template(r"tpl1646721501254.png", resolution=(1080, 1920)), search_mode=True,
-              bottom_v=Template(r"tpl1646988721772.png", resolution=(1080, 1920)),
+              bottom_f=Template(r"tpl1646988721772.png", resolution=(1080, 1920)),
               on_result=self._on_find_items, before_swipe=self._before_swipe_in_search_result,
               after_swipe=self._after_swipe_in_search_result, step=0.5, interval=0.5)
         keyevent("BACK")

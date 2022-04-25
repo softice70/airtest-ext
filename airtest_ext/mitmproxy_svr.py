@@ -30,9 +30,15 @@ class MitmDumpThread(threading.Thread):
                 mitm_main.mitmdump([
                     "--set",
                     f"confdir={self._cert_path}",
+                    "--set",
+                    f"console_eventlog_verbosity=warn",
+                    "--set",
+                    f"termlog_verbosity=warn",
                     "--no-ssl-insecure",
                     "--listen-port",
                     f"{self._port}",
+                    "--termlog_verbosity",
+                    "warn",
                     "--scripts",
                     self._script
                 ])
@@ -40,6 +46,10 @@ class MitmDumpThread(threading.Thread):
                 mitm_main.mitmweb([
                     "--set",
                     f"confdir={self._cert_path}",
+                    "--set",
+                    f"console_eventlog_verbosity=warn",
+                    "--set",
+                    f"termlog_verbosity=warn",
                     "--no-ssl-insecure",
                     "--no-server-replay-refresh",
                     "--web-host",

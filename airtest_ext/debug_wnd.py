@@ -15,6 +15,7 @@ from airtest_ext.utils import *
 # Todo: 修改airtest内核多线程不安全问题
 # Todo: 增加Page类，并实现is_active
 # Todo: 增加依据模板脚本创建新脚本
+# Todo: 增加截获数据的展示与分析
 
 
 class DebugWindow(DpgApp):
@@ -160,7 +161,7 @@ class DebugWindow(DpgApp):
                     dpg.add_text("手机屏幕:", color=[200, 200, 200, 255])
                     dpg.add_button(label="...", width=30, callback=lambda: (
                         dpg.set_item_user_data('file_dialog_id', 'load_test_file'), dpg.show_item("file_dialog_id")))
-                    dpg.add_button(label="截屏", callback=self._show_screen)
+                    dpg.add_button(label="截屏", callback=lambda: self._show_screen())
                     dpg.add_button(label="保存", callback=lambda: (
                         dpg.set_item_user_data('file_dialog_id', 'save_test_file'), dpg.show_item("file_dialog_id")))
                 self._create_draw_list('test_draw_list_id', 'test_draw_node_id')
@@ -180,6 +181,7 @@ class DebugWindow(DpgApp):
 
     @staticmethod
     def _show_dpg_debug_window():
+        # dpg.configure_app(manual_callback_management=True)
         # dpg.show_debug()
         # demo.show_demo()
         # dpg.show_style_editor()
@@ -429,7 +431,7 @@ class DebugWindow(DpgApp):
         self._draw_image(is_source=True)
 
     def _save_image(self, filename, is_source=True):
-        img = self._screen_img if is_source else self._feature
+        img = self._screen_img if is_source else self._feature.get_image()
         if img is not None:
             cv2.imwrite('{}.png'.format(filename), img, [int(cv2.IMWRITE_PNG_COMPRESSION), 9])
             self._show_message('操作提示', '文件已保存到 - {}.png'.format(filename))

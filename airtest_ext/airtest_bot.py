@@ -13,12 +13,58 @@ from frida_hooks.agent import FridaAgent
 from frida_hooks.utils import get_host
 
 from airtest_ext.interceptor_mgr import InterceptorMgr
+from airtest_ext.page import *
 import logging
 
 
+class Filter:
+    """
+    定义截包数据过滤规则
+    """
+
+    def __init__(self, data_name, url_regex, once_only=True):
+        """
+        :param data_name: 数据名称
+        :param url_regex: url正则
+        :param once_only: 是否是仅订阅（过滤）一次
+        """
+        self._data_name = data_name
+        self._url_regex = url_regex
+        self._once_only = once_only
+        self._datas = []
+
+    @property
+    def data_name(self):
+        return self._data_name
+
+    @property
+    def url_regex(self):
+        return self._url_regex
+
+    @property
+    def once_only(self):
+        return self._once_only
+
+    @property
+    def datas(self):
+        return self._datas
+
+
 class AirtestBot:
-    def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False, show_dbg_wnd=False,
-                 log_level=logging.WARN):
+    """
+    Airtest机器人
+    """
+    def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False,
+                 show_dbg_wnd=False, log_level=logging.WARN):
+        """
+        :param device_id: 手机的设备ID
+        :param app_name: 应用安装包的内部名称
+        :param start_mitmproxy: 是否开启mitmproxy服务，默认：False
+        :param intercept_all: 是否拦截所有mitmproxy上所有IP的请求，默认：False，仅拦截当前设备的请求
+        :param show_dbg_wnd: 是否开启调试窗口，默认：False。注意，开始后内部调试语句，如dbg.pause()，会生效
+        :param log_level: 日志等级，默认：logging.WARN
+        :param **kwargs: 平台关键词`kwargs`, 用户可以附加额外参数，这些参数则会传递给锚点目标页面的脚本
+        """
         self._device_id = device_id
         self._app_name = app_name
         self._log_level = log_level
@@ -30,12 +76,27 @@ class AirtestBot:
         self._mitmproxy_svr = None
         self._interceptor_id = None
         self._data_filters = {}
-        self._datas = {}
         self._lock = threading.RLock()
         self._data_event = threading.Event()
         self._page_paths = []
         self._dbg_wnd = DebugWindow()
         self._show_dbg_wnd = show_dbg_wnd
+        self._pages = {}
+
+    @property
+    def pages(self):
+        return self._pages
+
+    @pages.setter  # 实现一个age相关的setter方法
+    def pages(self, pages):
+        for page in pages:
+            self._pages[page.name] = page
+
+    def get_page(self, name):
+        if name in self._pages:
+            return self._pages[name]
+        else:
+            raise_exception(PageNotFoundException(f"程序异常：页面[{name}]没有定义，请检查有无定义该页面或是否加入到Bot类中!"))
 
     def init(self):
         self._reset_page_path()
@@ -97,8 +158,7 @@ class AirtestBot:
     def _register_interceptor(self):
         ip = get_host(self._device_id) if not self._intercept_all else ""
         if self._on_response_func is None:
-            if len(self._data_filters) > 0:
-                self._on_response_func = self._on_response
+            self._on_response_func = self._on_response
             self._interceptor_id = InterceptorMgr.register_interceptor(self._on_request_func, self._on_response_func,
                                                                        ip=ip, intercept_all=self._intercept_all)
         else:
@@ -110,47 +170,43 @@ class AirtestBot:
 
     def _order_data(self, filters):
         with self._lock:
-            self._data_filters.update(filters)
-            for data_type in filters.keys():
-                if data_type not in self._datas:
-                    self._datas[data_type] = []
+            filters = filters if isinstance(filters, list) else [filters]
+            for f in filters:
+                if f.data_name in self._data_filters:
+                    f.datas.append(self._data_filters[f.data_name].datas)
+                self._data_filters[f.data_name] = f
             self._data_event.clear()
 
-    def _get_ordered_data(self, timeout=None):
+    def _get_ordered_data(self, data_name=None, timeout=None):
         while True:
+            data_names = [data_name] if data_name else self._data_filters.keys()
             datas = []
-            all_ok = True
             with self._lock:
-                for data_type in self._datas.keys():
-                    if len(self._datas[data_type]) == 0:
-                        self._data_event.clear()
-                        all_ok = False
-                        break
-                    else:
-                        datas += self._datas[data_type]
+                for data_name in data_names:
+                    if len(self._data_filters[data_name].datas) > 0:
+                        datas += self._data_filters[data_name].datas
+                        if self._data_filters[data_name].once_only:
+                            del self._data_filters[data_name]
+                        else:
+                            self._data_filters[data_name].datas.clear()
 
-                if all_ok:
-                    self._data_filters = {}
-                    self._datas = {}
+                if len(datas) > 0:
                     return True, datas
-
-            if not all_ok:
-                if not self._data_event.wait(timeout):
-                    with self._lock:
-                        self._data_filters = {}
-                        self._datas = {}
-                    print(f'get data timeout: {data_type}')
-                    return False, datas
+                else:
+                    if not self._data_event.wait(timeout):
+                        print(f'获取{data_name}数据超时！')
+                        dbg_pause()
+                        return False, datas
 
     def _on_response(self, flow: http.HTTPFlow):
         with self._lock:
-            for data_type in self._data_filters.keys():
-                matches = re.search(self._data_filters[data_type], flow.request.url, re.IGNORECASE)
+            for data_name in self._data_filters.keys():
+                matches = re.search(self._data_filters[data_name].url_regex, flow.request.url, re.IGNORECASE)
                 if matches is not None:
                     data = flow.response.get_text()
-                    self._datas[data_type].append({"type": data_type,
-                                                   "url": flow.request.url,
-                                                   "data": data})
+                    self._data_filters[data_name].datas.append(
+                        {"data_name": data_name, "url": flow.request.url, "data": data})
+                    # print(f"收到一条数据，当前数据条数：{len(self._data_filters[data_name].datas)}")
                     self._data_event.set()
                     return
 
@@ -167,4 +223,3 @@ class AirtestBot:
 
     def _reset_page_path(self):
         self._page_paths = []
-

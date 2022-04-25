@@ -26,9 +26,11 @@ class Template(TemplateBase):
     scale_max: 多尺度模板匹配最大范围.
     scale_step: 多尺度模板匹配搜索步长.
     """
+    DEFAULT_THRESHOLD = 0.95
 
     def __init__(self, filename, img=None, threshold=None, target_pos=TargetPos.MID, record_pos=None, resolution=(),
                  rgb=False, scale_max=800, scale_step=0.005):
+        threshold = threshold or Template.DEFAULT_THRESHOLD
         super(Template, self).__init__(filename, threshold=threshold, target_pos=target_pos, record_pos=record_pos,
                                        resolution=resolution, rgb=rgb, scale_max=scale_max, scale_step=scale_step)
         self._caller_module = get_caller_module()
