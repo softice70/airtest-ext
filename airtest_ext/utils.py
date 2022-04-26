@@ -192,7 +192,8 @@ def exists(v, in_rect=None, timeout=None, threshold=None, interval=0.5, interval
     :param interval: 尝试匹配图像的时间间隔，单位秒，默认：0.5
     :param intervalfunc: 匹配成功后的回调函数，默认:None
     :param threshold: 图像匹配的信度阈值
-    :param in_rect: 在指定区域内匹配，采用屏幕相对坐标 ((left, top), (bottom, right))。相对坐标从上至下、从左至右对应-1~1区间
+    :param in_rect: 在指定区域内匹配，采用屏幕相对坐标 ((left, top), (bottom, right))。相对坐标从上至下、从左至右对应-1~1区间，
+                    默认：None
     :return: 匹配信息，包括坐标、信度等
     :platforms: Android, Windows, iOS
     :Example:
@@ -303,18 +304,34 @@ def find_all_in_screen(v, screen=None, in_rect=None, threshold=None):
     return ret
 
 
-def wait(v, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
+def wait(v, in_rect=None, timeout=None, threshold=None, interval=0.5, intervalfunc=None):
+    """
+    等待给定的目标出现在屏幕上，直到超时为止
+
+    :param v: 目标图像, Template实例
+    :param in_rect: 在指定区域内匹配，采用屏幕相对坐标 ((left, top), (bottom, right))。相对坐标从上至下、从左至右对应-1~1区间，
+            默认：None
+    :param timeout: 等待匹配图像的超时时间，默认：None（内部是20秒)
+    :param threshold: 图像匹配的信度阈值
+    :param interval: 尝试匹配图像的时间间隔，单位秒，默认：0.5
+    :param intervalfunc: 匹配成功后的回调函数，默认:None
+    :return: 匹配信息，包括坐标、信度等
+    """
     _set_debug_event('api_start', data={'api': 'wait', 'action': '等待(wait)', 'status': '执行中...', 'has_sub_event': True})
-    ret = exists(v, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
+    ret = exists(v, in_rect=in_rect, timeout=timeout, threshold=threshold, interval=interval, intervalfunc=intervalfunc)
     _set_debug_event('api_end', data={'api': 'wait', 'status': ('成功' if ret else '超时')})
+    if ret is None:
+        dbg_pause()
     return ret
 
 
-def touch(v, times=1, auto_back=False, action=None, timeout=ST.FIND_TIMEOUT, **kwargs):
+def touch(v, in_rect=None, times=1, auto_back=False, action=None, timeout=ST.FIND_TIMEOUT, **kwargs):
     """
     点击屏幕
 
     :param v: 屏幕上的特征图或位置, 支持Template实例、绝对坐标(x, y)及相对坐标（x, y)，搜索模式下不支持Template。相对坐标从上至下、从左至右对应-1~1区间
+    :param in_rect: 在指定区域内匹配，采用屏幕相对坐标 ((left, top), (bottom, right))。相对坐标从上至下、从左至右对应-1~1区间，
+                    默认：None
     :param times: 点击次数
     :param auto_back: 是否自动返回（模拟点击回退键），默认：False
     :param action: 点击后的回调函数，默认：None
@@ -326,7 +343,7 @@ def touch(v, times=1, auto_back=False, action=None, timeout=ST.FIND_TIMEOUT, **k
     if isinstance(v, Template):
         _set_debug_event('api_start',
                          data={'api': 'touch', 'action': '点击(touch)', 'status': '执行中...', 'has_sub_event': True})
-        match_result = exists(v, timeout=timeout)
+        match_result = exists(v, in_rect=in_rect, timeout=timeout)
         pos = match_result['pos'] if match_result else None
     else:
         _set_debug_event('api_start',
@@ -347,6 +364,7 @@ def touch(v, times=1, auto_back=False, action=None, timeout=ST.FIND_TIMEOUT, **k
     else:
         _set_debug_event('api_end', data={'api': 'touch', 'status': '失败'})
         print(f"Failed to touch at pos:[{v}]!")
+        dbg_pause()
     return pos
 
 

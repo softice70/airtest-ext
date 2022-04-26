@@ -17,6 +17,9 @@ from airtest_ext.page import *
 import logging
 
 
+class FeatureNotFoundException(BaseException): pass
+
+
 class Filter:
     """
     定义截包数据过滤规则
@@ -50,6 +53,35 @@ class Filter:
         return self._datas
 
 
+class Feature:
+    """
+    定义页面上的特征图
+    """
+
+    def __init__(self, name, feature, in_rect=None):
+        """
+        :param name: 特征名称
+        :param feature: 特征图，多个特征时，可以传数组
+        :param in_rect: 在指定区域内匹配，采用屏幕相对坐标 ((left, top), (bottom, right))。相对坐标从上至下、从左至右对应-1~1区间，
+                        默认：None
+        """
+        self._name = name
+        self._feature = feature
+        self._in_rect = in_rect
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def feature(self):
+        return self._feature
+
+    @property
+    def in_rect(self):
+        return self._in_rect
+
+
 class AirtestBot:
     """
     Airtest机器人
@@ -81,7 +113,23 @@ class AirtestBot:
         self._page_paths = []
         self._dbg_wnd = DebugWindow()
         self._show_dbg_wnd = show_dbg_wnd
+        self._features = {}
         self._pages = {}
+
+    @property
+    def features(self):
+        return self._features
+
+    @features.setter  # 实现一个age相关的setter方法
+    def features(self, features):
+        for f in features:
+            self._features[f.name] = f
+
+    def get_feature(self, name):
+        if name in self._features:
+            return self._features[name]
+        else:
+            raise_exception(FeatureNotFoundException(f"程序异常：特征[{name}]没有定义，请检查有无定义该特征或是否加入到Bot类中!"))
 
     @property
     def pages(self):
@@ -99,7 +147,6 @@ class AirtestBot:
             raise_exception(PageNotFoundException(f"程序异常：页面[{name}]没有定义，请检查有无定义该页面或是否加入到Bot类中!"))
 
     def init(self):
-        self._reset_page_path()
         if self._device_id == '':
             self._frida_agent.init_device(self._device_id)
             self._device_id = self._frida_agent.get_device_id()
@@ -115,7 +162,6 @@ class AirtestBot:
     def uninit(self):
         self._unregister_interceptor()
         self._frida_agent.exit()
-        self._reset_page_path()
 
     def run(self, **kwargs):
         if self._start_mitmproxy_svr:
@@ -146,6 +192,55 @@ class AirtestBot:
     @abstractmethod
     def main_script(self, **kwargs):
         pass
+
+    def _return_to(self, v, home_anchor=None):
+        """
+        回退到包含指定特征的页面
+
+        :argument v: 目标特征图或特征图名称
+        :argument home_anchor: 首页首屏锚点特征图，若不存在其他Fragment(片段)则可以不填，默认:None
+        :return 无
+        """
+        feature = self._features[v].feature if isinstance(v, str) else v
+        if home_anchor:
+            home_anchor = self._features[home_anchor].feature if isinstance(home_anchor, str) else home_anchor
+        goto_home_page(feature, home_anchor=home_anchor)
+
+    def _touch(self, v, timeout=10):
+        """
+        点击屏幕
+
+        :param v: 屏幕上的特征图或特征图名称或位置, 支持Template实例、绝对坐标(x, y)及相对坐标（x, y)，搜索模式下不支持Template。相对坐标从上至下、从左至右对应-1~1区间
+        :param timeout: 匹配锚点图片时的等待超时时间，当没有特征图时，则点击指定位置后，也会等待该超时时间
+        :return: 无
+        """
+        feature = self._features[v].feature if isinstance(v, str) else v
+        in_rect = self._features[v].in_rect if isinstance(v, str) else None
+        touch(feature, in_rect=in_rect, timeout=timeout)
+
+    def _wait(self, v, timeout=10):
+        """
+        等待给定的目标出现在屏幕上，直到超时为止
+
+        :param v: 目标特征图或特征图名称
+        :param timeout: 等待匹配图像的超时时间，默认：None（内部是20秒)
+        :return: 无
+        """
+        feature = self._features[v].feature if isinstance(v, str) else v
+        in_rect = self._features[v].in_rect if isinstance(v, str) else None
+        wait(feature, in_rect=in_rect, timeout=timeout)
+
+    def _exists(self, v, timeout=10):
+        """
+        检查给定的目标是否在屏幕上存在，如果不存在会一直等到超时为止
+
+        :param v: 目标特征图或特征图名称
+        :param timeout: 等待匹配图像的超时时间，默认：None（内部是20秒)
+        :return: 匹配信息，包括坐标、信度等
+        """
+        feature = self._features[v].feature if isinstance(v, str) else v
+        in_rect = self._features[v].in_rect if isinstance(v, str) else None
+        return exists(feature, in_rect=in_rect, timeout=timeout)
 
     def _start_mitmproxy(self):
         self._mitmproxy_svr = MitmDumpThread("mitmdump", debug=True)
@@ -209,17 +304,3 @@ class AirtestBot:
                     # print(f"收到一条数据，当前数据条数：{len(self._data_filters[data_name].datas)}")
                     self._data_event.set()
                     return
-
-    def _print_page_path(self):
-        print(f"path: {' >> '.join(self._page_paths)}")
-
-    def _in_page(self, page):
-        self._page_paths.append(page)
-        self._print_page_path()
-
-    def _out_page(self):
-        self._page_paths.pop()
-        self._print_page_path()
-
-    def _reset_page_path(self):
-        self._page_paths = []

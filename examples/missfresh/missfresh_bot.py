@@ -30,7 +30,6 @@ class MissfreshBot(AirtestBot):
     def _search(self, word):
         if exists(Template(r"tpl1647593766971.png", record_pos=(-0.382, -0.259), resolution=(1080, 1920)),
                   timeout=10):
-            self._in_page('search')
             touch(Template(r"tpl1646706453615.png", record_pos=(-0.34, -0.741), resolution=(1080, 1920)))
             text(word)
             # 订阅搜索数据
@@ -45,7 +44,6 @@ class MissfreshBot(AirtestBot):
                 if exists(Template(r"tpl1646706830703.png", record_pos=(-0.411, 0.704), resolution=(1080, 1920)),
                           timeout=20):
                     sleep(5)
-                    self._in_page('search_result')
                     swipe(Template(r"tpl1646721501254.png", resolution=(1080, 1920)), search_mode=True,
                           bottom_f=Template(r"tpl1646988721772.png", resolution=(1080, 1920)),
                           on_result=self._on_find_items, before_swipe=self._before_swipe_in_search_result,
@@ -95,24 +93,18 @@ class MissfreshBot(AirtestBot):
                 print("没有发现用户评价字样!")
                 return False
             else:
-                self._in_page('0-comment')
                 print("没有收到首次用户评论数据！")
-                self._out_page()
                 return True
-        else:
-            self._in_page('comment_default')
+
         if exists(Template(r"tpl1646722868603.png", record_pos=(0.247, -0.639), resolution=(1080, 1920)), timeout=10):
             # 订阅评论数据
             self._order_data({"comment": r"https://as-vip.missfresh.cn/as/item/detail/comment"})
-            self._in_page('comment_by_time')
             touch(Template(r"tpl1646722868603.png", record_pos=(0.247, -0.639), resolution=(1080, 1920)))
-            self._out_page()
             # 获取返回结果
             is_success, datas = self._get_ordered_data(10)
 
         if self._on_result_callback:
             self._on_result_callback(datas)
-        self._out_page()
         return True
 
     def _is_keep_go_on(self):
@@ -126,12 +118,10 @@ class MissfreshBot(AirtestBot):
             # 获取商品数据结果
             is_success, datas = self._get_ordered_data(10)
             if is_success:
-                self._in_page('product')
                 if self._on_result_callback:
                     self._on_result_callback(datas)
                 swipe(Template(r"tpl1646721729175.png", record_pos=(0.349, 0.382), resolution=(1080, 1920)),
                       search_mode=True, on_result=self._on_find_comment, after_swipe=self._is_keep_go_on, step=0.5)
-                self._out_page()
                 return True
             else:
                 print("没有获取到商品数据结果!")

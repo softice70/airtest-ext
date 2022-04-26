@@ -8,7 +8,7 @@
 from setuptools import setup
 
 setup(name = "airtest-ext",
-    version = "0.5.0",
+    version = "0.5.1",
     description = "An extension for airtest",
     author = "Ryan",
     author_email = "dawnsun@sina.com",
