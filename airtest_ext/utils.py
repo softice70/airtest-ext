@@ -2,8 +2,11 @@
 # -*-coding: UTF-8 -*-
 
 import time
+import base64
+import json
 import threading
 import inspect
+import xlwt
 from airtest.core.api import init_device, connect_device, device, set_current, auto_setup, shell, start_app, stop_app, \
     clear_app, install, uninstall, snapshot, wake, home, touch as touch_core, double_click, swipe as swipe_core, pinch, \
     keyevent, text, sleep, wait as wait_core, exists as exists_core, find_all, assert_exists, assert_not_exists, \
@@ -17,6 +20,9 @@ from airtest.core.helper import (G, delay_after_operation, import_device_cls,
 from airtest_ext.template import Template
 
 import math
+
+
+class DataFormatErrorException(BaseException): pass
 
 # Todo: 增加长期订阅数据、支持数据回调
 # Todo: 撰写文档
@@ -51,6 +57,12 @@ def dbg_pause():
     _set_debug_event('api_start',
                      data={'api': 'dbg_pause', 'action': '暂停(dbg_pause)', 'status': '暂停中...', 'has_sub_event': False})
     _set_debug_event('api_end', data={'api': 'dbg_pause', 'status': '完成'})
+
+
+def raise_exception(e):
+    print(e)
+    dbg_pause()
+    raise e
 
 
 def get_screen_resolution():
@@ -379,6 +391,139 @@ def go_back(action=None):
     keyevent("BACK")
     sleep(1)
     _set_debug_event('api_end', data={'api': 'go_back', 'status': '完成'})
+
+
+def str_to_timestamp_10(time_str, time_format):
+    """
+    时间字符串转时间戳（长度10）
+
+    :param time_str: 时间字符串
+    :param time_format: 时间字符串的格式串，如"%Y-%m-%d %H:%M:%S"
+    :return: 长度为10的时间戳
+    """
+    return time.mktime(time.strptime(time_str, time_format))
+
+
+def str_to_timestamp_13(time_str, time_format):
+    """
+    时间字符串转时间戳（长度13）
+
+    :param time_str: 时间字符串
+    :param time_format: 时间字符串的格式串，如"%Y-%m-%d %H:%M:%S"
+    :return: 长度为13的时间戳
+    """
+    return str_to_timestamp_10(time_str, time_format) * 1000
+
+
+def timestamp_10_to_str(tm, time_format):
+    """
+    时间戳（长度10）转时间字符串
+
+    :param tm: 时间戳
+    :param time_format: 时间字符串的格式串，如"%Y-%m-%d %H:%M:%S"
+    :return: 长度为10的时间戳
+    """
+    return time.strftime(time_format, time.localtime(tm))
+
+
+def timestamp_13_to_str(tm, time_format):
+    """
+    时间戳（长度13）转时间字符串
+
+    :param tm: 时间戳
+    :param time_format: 时间字符串的格式串，如"%Y-%m-%d %H:%M:%S"
+    :return: 长度为13的时间戳
+    """
+    return time.strftime(time_format, time.localtime(tm / 1000))
+
+
+def base64_decode(content):
+    """
+    base64解码
+
+    :param content: base64文本
+    :return: 解码后的字符串
+    """
+    return base64.b64decode(content).decode('utf8')
+
+
+def str_to_json_object(json_str):
+    """
+    序列化的json串转json对象
+
+    :param json_str: 序列化的json串
+    :return: json对象
+    """
+    return json.loads(json_str)
+
+
+def json_object_to_str(json_obj):
+    """
+    json对象序列化为json串
+
+    :param json_obj: json对象
+    :return: 序列化的json串
+    """
+    return json.dumps(json_obj)
+
+
+def write_excel(file_name, datas):
+    """
+    写Excel文件
+
+    :param file_name: 文件名
+    :param datass: 数据列表
+    :return: 无
+    """
+    if isinstance(datas, list):
+        if datas and len(datas) > 0:
+            book = xlwt.Workbook(encoding='utf-8', style_compression=0)
+            sheet = book.add_sheet('app_data', cell_overwrite_ok=True)
+            if isinstance(datas[0], dict):
+                col_names = _get_col_name_for_write_excel(datas)
+                if col_names:
+                    for c in range(len(col_names)):
+                        sheet.write(0, c, col_names[c])
+                    for r in range(len(datas)):
+                        for c in range(len(col_names)):
+                            print(col_names[c], datas[r])
+                            sheet.write(r + 1, c, datas[r][col_names[c]])
+                else:
+                    row_no = 0
+                    for i in range(len(datas)):
+                        col_names = list(datas[i].keys())
+                        for key in col_names:
+                            sheet.write(row_no, 0, str(key))
+                            sheet.write(row_no, 1, json_object_to_str(datas[i][key]))
+                            row_no += 1
+            else:
+                for r in range(len(datas)):
+                    sheet.write(r, 0, json_object_to_str(datas[r]))
+            book.save(file_name)
+        else:
+            print("写数据失败，数据为空或长度为0!")
+    else:
+        raise_exception(DataFormatErrorException("数据格式错误，写Excel的数据必须是列表!"))
+
+
+def _get_col_name_for_write_excel(datas):
+    if datas and len(datas) > 0:
+        if isinstance(datas[0], dict):
+            col_names = list(datas[0].keys())
+            for i in range(1, len(datas)):
+                same_count = 0
+                for key in col_names:
+                    if key in datas[i]:
+                        same_count += 1
+                if same_count / len(col_names) < 0.8:
+                    break
+            else:
+                for i in range(1, len(datas)):
+                    for key in datas[0].keys():
+                        if key not in datas[i]:
+                            col_names.append(key)
+                return col_names
+    return None
 
 
 def _get_new_item(pos_info, last_pos_info, bottom_pos_info, swipe_v, max_error_rate=None):

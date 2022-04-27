@@ -22,12 +22,6 @@ class ParameterIncorrectException(BaseException): pass
 class TouchFailedException(BaseException): pass
 
 
-def raise_exception(e):
-    print(e)
-    dbg_pause()
-    raise e
-
-
 class ToWhere:
     """
     定义锚点点击后的目标页信息

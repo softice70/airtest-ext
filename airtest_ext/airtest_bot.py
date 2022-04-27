@@ -242,6 +242,56 @@ class AirtestBot:
         in_rect = self._features[v].in_rect if isinstance(v, str) else None
         return exists(feature, in_rect=in_rect, timeout=timeout)
 
+    def _order_data(self, filters):
+        """
+        订阅数据
+
+        :param filters: 过滤器或过滤器数组
+        :return: 无
+        """
+        with self._lock:
+            filters = filters if isinstance(filters, list) else [filters]
+            for f in filters:
+                if f.data_name in self._data_filters:
+                    f.datas.append(self._data_filters[f.data_name].datas)
+                self._data_filters[f.data_name] = f
+            self._data_event.clear()
+
+    def _get_ordered_data(self, data_name=None, timeout=10, no_dbg_pause=True):
+        """
+        获取订阅的数据
+
+        :param data_name: 要获取的数据名称
+        :param timeout: 等待数据的超时时间，默认：10
+        :return: 是否成功，数据
+                数据格式：{"data_name": data_name, "url": url, "data": data}
+                        data_name: 数据名称
+                        url: 请求的url
+                        data: 请求返回的数据
+        """
+        while True:
+            data_names = [data_name] if data_name else self._data_filters.keys()
+            datas = []
+            with self._lock:
+                for name in data_names:
+                    if len(self._data_filters[name].datas) > 0:
+                        datas += self._data_filters[name].datas
+                        if self._data_filters[name].once_only:
+                            del self._data_filters[name]
+                        else:
+                            self._data_filters[name].datas.clear()
+
+                if len(datas) > 0:
+                    return True, datas
+                else:
+                    self._data_event.clear()
+                    ret = self._data_event.wait(timeout)
+                    if not ret:
+                        print(f'获取{data_name if data_name else ""}数据超时！')
+                        if not no_dbg_pause:
+                            dbg_pause()
+                        return False, datas
+
     def _start_mitmproxy(self):
         self._mitmproxy_svr = MitmDumpThread("mitmdump", debug=True)
         self._mitmproxy_svr.start()
@@ -262,36 +312,6 @@ class AirtestBot:
 
     def _unregister_interceptor(self):
         InterceptorMgr.unregister_interceptor(self._interceptor_id)
-
-    def _order_data(self, filters):
-        with self._lock:
-            filters = filters if isinstance(filters, list) else [filters]
-            for f in filters:
-                if f.data_name in self._data_filters:
-                    f.datas.append(self._data_filters[f.data_name].datas)
-                self._data_filters[f.data_name] = f
-            self._data_event.clear()
-
-    def _get_ordered_data(self, data_name=None, timeout=None):
-        while True:
-            data_names = [data_name] if data_name else self._data_filters.keys()
-            datas = []
-            with self._lock:
-                for data_name in data_names:
-                    if len(self._data_filters[data_name].datas) > 0:
-                        datas += self._data_filters[data_name].datas
-                        if self._data_filters[data_name].once_only:
-                            del self._data_filters[data_name]
-                        else:
-                            self._data_filters[data_name].datas.clear()
-
-                if len(datas) > 0:
-                    return True, datas
-                else:
-                    if not self._data_event.wait(timeout):
-                        print(f'获取{data_name}数据超时！')
-                        dbg_pause()
-                        return False, datas
 
     def _on_response(self, flow: http.HTTPFlow):
         with self._lock:
