@@ -1,8 +1,8 @@
 # -*- encoding=utf8 -*-
 
+from jsonpath import jsonpath
+from airtest_ext.airtest_bot import AirtestBot, Filter, Feature
 from airtest_ext.utils import *
-from airtest_ext.airtest_bot import AirtestBot
-from airtest_ext.page import Page, Anchor, Fragment, ToWhere
 
 
 # 需要替换:__BOT__  __APP_NAME__
@@ -18,34 +18,28 @@ class __BOT__(AirtestBot):
         self._init_pages()
 
     def _init_pages(self):
-        pages = []
-
+        features = []
         """
         在此处定义页面信息，下面是一个例子，仅供参考：
-        # 定义24小时页
-        # 定义24小时页
-        features = [Template(r"tpl1650537507984.png", record_pos=(-0.201, 0.706), resolution=(1080, 1920), rgb=True)]
-        anchors = [Anchor('to_24小时',
-                          Template(r"tpl1650537543373.png", record_pos=(-0.199, 0.706), resolution=(1080, 1920),
-                                   rgb=True), [ToWhere('首页', '24小时')]),
-                   Anchor('to_内容页', None, [ToWhere('内容页')])]
-        fragments = [Fragment(self, '24小时', '首页', None, features=[
-            Template(r"tpl1650537507984.png", record_pos=(-0.201, 0.706), resolution=(1080, 1920), rgb=True)])]
-        page = Page(self, '首页', features, None, anchors=anchors, fragments=fragments)
-        # 添加到页面列表中，此处不要删除
-        pages.append(page)
-
-        # 定义内容页
-        features = [Template(r"tpl1650604393112.png", record_pos=(0.272, -0.762), resolution=(1080, 1920)),
-                    Template(r"tpl1650604418546.png", record_pos=(0.411, 0.106), resolution=(1080, 1920))]
-        page = Page(self, '内容页', features, self._article_script, anchors=None, fragments=None)
-        # 添加到页面列表中，此处不要删除
-        pages.append(page)
-
+        # 定义页面特征
+        features = [
+            Feature("24小时页面特征",
+                    Template(r"tpl1650537507984.png", record_pos=(-0.201, 0.706), resolution=(1080, 1920), rgb=True)),
+            Feature("24小时锚点",
+                    Template(r"tpl1650537543373.png", record_pos=(-0.199, 0.706), resolution=(1080, 1920), rgb=True)),
+            Feature("内容页特征",
+                    [
+                        Template(r"tpl1650604393112.png", record_pos=(0.272, -0.762), resolution=(1080, 1920)),
+                        Template(r"tpl1650604418546.png", record_pos=(0.411, 0.106), resolution=(1080, 1920))
+                    ]
+                ),
+            Feature("文章列表特征",
+                    Template(r"tpl1650597530212.png", record_pos=(-0.456, -0.233), resolution=(1080, 1920))),
+            ]
         """
 
         # 此处不要删除
-        self.pages = pages
+        self.features = features
 
     # 主脚本程序，kwargs可以接收通过run传递的参数
     def main_script(self, **kwargs):

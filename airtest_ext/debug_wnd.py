@@ -11,6 +11,7 @@ from math import *
 import re
 from airtest_ext.utils import *
 
+
 # Todo: 将match_info封装称类MatchResult
 # Todo: 修改airtest内核多线程不安全问题
 # Todo: 增加Page类，并实现is_active
@@ -21,7 +22,8 @@ from airtest_ext.utils import *
 class DebugWindow(DpgApp):
     def __init__(self, x_pos=100, y_pos=100, always_on_top=False):
         self._wnd_size = (1220, 728)
-        super(DebugWindow, self).__init__(title='airtest debugger', width=self._wnd_size[0], height=self._wnd_size[1], x_pos=x_pos, y_pos=y_pos,
+        super(DebugWindow, self).__init__(title='airtest debugger', width=self._wnd_size[0], height=self._wnd_size[1],
+                                          x_pos=x_pos, y_pos=y_pos,
                                           resizable=False, always_on_top=always_on_top)
         self._screen_img_id = None
         self._feature_img_id = None
@@ -44,6 +46,7 @@ class DebugWindow(DpgApp):
         self._user_module_codes = inspect.getsourcelines(self._user_module)[0]
         self._funcs = ['swipe', 'exists', 'wait', 'touch', 'go_back']
         self._breakpoint_infos = []
+        self._template_script = self._load_source()
 
     def on_debug_event(self, sender, data):
         self._update_api_debug_info(sender, data)
@@ -78,6 +81,11 @@ class DebugWindow(DpgApp):
                 dpg.add_theme_color(dpg.mvThemeCol_Button, [199, 84, 80, 255])
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, [225, 84, 80, 255])
                 dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, [255, 84, 80, 255])
+        with dpg.theme(tag="blue_button_theme_id"):
+            with dpg.theme_component(dpg.mvButton):
+                dpg.add_theme_color(dpg.mvThemeCol_Button, [47, 89, 133, 255])
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, [47, 89, 199, 255])
+                dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, [47, 89, 225, 255])
 
         # 创建纹理库
         dpg.add_texture_registry(tag="texture_registry_id", show=False)
@@ -94,6 +102,11 @@ class DebugWindow(DpgApp):
                                    color=(0, 255, 255, 255))
             dpg.add_file_extension("", color=(150, 255, 150, 255))
             dpg.add_file_extension(".*")
+
+        # 保存脚本文件对话框
+        with dpg.file_dialog(directory_selector=False, show=False, callback=self._callback, height=500,
+                             id="save_script_dialog_id"):
+            dpg.add_file_extension("Python files (*.py){.py}", color=(0, 255, 255, 255))
 
         # 提示信息对话框
         with dpg.window(label="信息", width=300, height=120, modal=True, show=False,
@@ -124,13 +137,15 @@ class DebugWindow(DpgApp):
                                     with dpg.child_window(width=428, height=295, horizontal_scrollbar=True):
                                         dpg.add_text('', tag='match_info_text_id', color=[192, 192, 0, 255])
                                 with dpg.tab(label="源码"):
-                                    dpg.add_text('源码:', tag='source_title_text_id', bullet=True, color=[23,156,255, 255])
+                                    dpg.add_text('源码:', tag='source_title_text_id', bullet=True,
+                                                 color=[23, 156, 255, 255])
                                     with dpg.child_window(width=428, height=267, horizontal_scrollbar=True):
-                                        dpg.add_text('', tag='source_text_id', color=[106,135,89, 255])
+                                        dpg.add_text('', tag='source_text_id', color=[106, 135, 89, 255])
 
                         with dpg.tab(label="断点"):
                             dpg.add_text('断点列表:', bullet=True, color=[23, 156, 255, 255])
-                            dpg.add_child_window(width=428, height=565, tag='breakpoint_wnd_id', horizontal_scrollbar=True)
+                            dpg.add_child_window(width=428, height=565, tag='breakpoint_wnd_id',
+                                                 horizontal_scrollbar=True)
                             self._analyze_codes()
 
                         with dpg.tab(label="辅助工具"):
@@ -154,7 +169,23 @@ class DebugWindow(DpgApp):
                                 dpg.add_text('相对信息: ', color=[64, 150, 193, 255])
                                 dpg.add_text('', tag='select_rel_rect_text_id', color=[128, 128, 128, 255])
                                 dpg.add_button(label='复制', show=False, tag='copy_btn_id', pos=(390, 580),
-                                               callback=lambda : self._copy_selection_info())
+                                               callback=lambda: self._copy_selection_info())
+                        with dpg.tab(label="脚本创建工具"):
+                            with dpg.group(horizontal=True, horizontal_spacing=10):
+                                dpg.add_text('机器人类名: ', color=[64, 150, 193, 255])
+                                dpg.add_input_text(tag='bot_input_id', no_spaces=True)
+                            with dpg.group(horizontal=True, horizontal_spacing=10):
+                                dpg.add_text('应用内部名: ', color=[64, 150, 193, 255])
+                                dpg.add_input_text(tag='app_name_input_id', no_spaces=True)
+                            with dpg.child_window(width=428, height=510, horizontal_scrollbar=True):
+                                dpg.add_text(self._template_script, tag='script_view_id', color=[106, 135, 89, 255])
+                            with dpg.group(horizontal=True, horizontal_spacing=10):
+                                dpg.add_button(label="生成脚本", callback=lambda: self._create_script())
+                                dpg.add_button(label="保存", tag='save_script_button_id',
+                                               callback=lambda: (
+                                               dpg.set_item_user_data('save_script_dialog_id', 'save_script_file'),
+                                               dpg.show_item("save_script_dialog_id")), show=False)
+                                dpg.bind_item_theme(dpg.last_item(), "blue_button_theme_id")
 
             with dpg.group(indent=0, tag="test_group_id"):
                 with dpg.group(horizontal=True, horizontal_spacing=10):
@@ -170,7 +201,7 @@ class DebugWindow(DpgApp):
                 with dpg.group(horizontal=True, horizontal_spacing=10):
                     dpg.add_text("局部特征图:", color=[200, 200, 200, 255])
                     dpg.add_button(label="...", width=30, callback=lambda: (
-                    dpg.set_item_user_data('file_dialog_id', 'load_feature_file'), dpg.show_item("file_dialog_id")))
+                        dpg.set_item_user_data('file_dialog_id', 'load_feature_file'), dpg.show_item("file_dialog_id")))
                     dpg.add_button(label="屏幕剪切", callback=self._cut_image)
                     dpg.add_button(label="保存", callback=lambda: (
                         dpg.set_item_user_data('file_dialog_id', 'save_feature_file'), dpg.show_item("file_dialog_id")))
@@ -227,6 +258,11 @@ class DebugWindow(DpgApp):
                     self._save_image(app_data["file_path_name"])
                 elif user_data == 'save_feature_file':
                     self._save_image(app_data["file_path_name"], is_source=False)
+                elif user_data == 'save_script_file':
+                    self._save_script(app_data["file_path_name"])
+        elif sender == "save_script_dialog_id":
+            if user_data is not None and user_data == 'save_script_file':
+                self._save_script(app_data["file_path_name"])
         elif isinstance(sender, str) and sender.startswith('debug_info_list_tags_'):
             if self._is_bot_halted:
                 event_data = user_data[app_data]
@@ -447,11 +483,11 @@ class DebugWindow(DpgApp):
         code_strs = []
         for i in range(start_line, end_line + 1):
             if i == line_no:
-                code_strs.append(f'{"-"*80}\n')
-                code_strs.append(f'{str(i+1):<3}{codes[i]}')
-                code_strs.append(f'{"-"*80}\n')
+                code_strs.append(f'{"-" * 80}\n')
+                code_strs.append(f'{str(i + 1):<3}{codes[i]}')
+                code_strs.append(f'{"-" * 80}\n')
             else:
-                code_strs.append(f'{str(i+1):<3}{codes[i]}')
+                code_strs.append(f'{str(i + 1):<3}{codes[i]}')
                 # code_strs.append(f'{codes[i]}')
         return ''.join(code_strs)
 
@@ -512,7 +548,7 @@ class DebugWindow(DpgApp):
             for i in range(len(results)):
                 rect = results[i]["rectangle"]
                 x, y, w, h = rect[0][0], rect[0][1], rect[2][0] - rect[0][0] + 1, rect[2][1] - rect[0][1] + 1
-                infos.append(f'    {i+1}  信度:{results[i]["confidence"]:.2f}  位置:({x}, {y})  宽高:({w}, {h})')
+                infos.append(f'    {i + 1}  信度:{results[i]["confidence"]:.2f}  位置:({x}, {y})  宽高:({w}, {h})')
         return '\n'.join(infos)
 
     def _update_api_debug_info(self, sender, data):
@@ -556,7 +592,8 @@ class DebugWindow(DpgApp):
         header_tag_id = f'debug_info_header_tags_{cur_id}'
         list_tag_id = f'debug_info_list_tags_{cur_id}'
         label = f'{cur_id}  {api_name} - {status}'
-        infos = {'id': cur_id, 'api_name': api_name, 'status': status, 'header_tag_id': header_tag_id, 'list_tag_id': list_tag_id,
+        infos = {'id': cur_id, 'api_name': api_name, 'status': status, 'header_tag_id': header_tag_id,
+                 'list_tag_id': list_tag_id,
                  'datas': datas, 'event_data': event_data}
         dpg.add_collapsing_header(label=label, tag=header_tag_id, user_data=infos, parent='debug_info_child_wnd_id',
                                   before=last_header_tag_id)
@@ -571,7 +608,8 @@ class DebugWindow(DpgApp):
         header_tag_id = infos['header_tag_id']
         list_tag_id = infos['list_tag_id']
         event_data = infos['event_data']
-        if event_data and isinstance(event_data, dict) and 'has_sub_event' in event_data and not event_data['has_sub_event']:
+        if event_data and isinstance(event_data, dict) and 'has_sub_event' in event_data and not event_data[
+            'has_sub_event']:
             key = f'1  {event_data["action"]}'
             items = [key]
             user_data = {key: event_data}
@@ -585,11 +623,11 @@ class DebugWindow(DpgApp):
                 results = debug_infos[i]["results"]
                 feature = debug_infos[i]['feature']
                 if results is None:
-                    key = f'{i+1}  匹配失败  t-{feature.threshold}'
+                    key = f'{i + 1}  匹配失败  t-{feature.threshold}'
                 elif len(results) == 1:
-                    key = f'{i+1}  匹配成功  f-{results[0]["confidence"]:.2f}  t-{feature.threshold})'
+                    key = f'{i + 1}  匹配成功  f-{results[0]["confidence"]:.2f}  t-{feature.threshold})'
                 else:
-                    key = f'{i+1}  匹配成功  c-{len(results)}  t-{feature.threshold})'
+                    key = f'{i + 1}  匹配成功  c-{len(results)}  t-{feature.threshold})'
                 items.append(key)
                 user_data[key] = debug_infos[i]
             if len(items) > 0:
@@ -619,7 +657,8 @@ class DebugWindow(DpgApp):
             dpg.set_value('select_rect_text_id',
                           '(({}, {}), ({}, {}))'.format(rect[0][0], rect[0][1], rect[1][0], rect[1][1]))
             dpg.set_value('select_rel_rect_text_id',
-                          '(({:.3f}, {:.3f}), ({:.3f}, {:.3f}))'.format(rel_rect[0][0], rel_rect[0][1], rel_rect[1][0], rel_rect[1][1]))
+                          '(({:.3f}, {:.3f}), ({:.3f}, {:.3f}))'.format(rel_rect[0][0], rel_rect[0][1], rel_rect[1][0],
+                                                                        rel_rect[1][1]))
             if not dpg.get_item_configuration('copy_btn_id')['show']:
                 dpg.configure_item('copy_btn_id', show=True)
         else:
@@ -630,7 +669,8 @@ class DebugWindow(DpgApp):
     def _copy_selection_info(self):
         if self._selection:
             rect, rel_rect = self._get_selection_rect()
-            info = '(({:.3f}, {:.3f}), ({:.3f}, {:.3f}))'.format(rel_rect[0][0], rel_rect[0][1], rel_rect[1][0], rel_rect[1][1])
+            info = '(({:.3f}, {:.3f}), ({:.3f}, {:.3f}))'.format(rel_rect[0][0], rel_rect[0][1], rel_rect[1][0],
+                                                                 rel_rect[1][1])
             pyperclip.copy(info)
 
     def _get_selection_rect(self):
@@ -649,14 +689,15 @@ class DebugWindow(DpgApp):
         for i in range(len(self._user_module_codes)):
             code = self._user_module_codes[i]
             if re.search("\s(exists|swipe|wait|touch|go_back)\(", code):
-                info = {'line_no': i+1, 'code': code.strip(), 'enable': False}
+                info = {'line_no': i + 1, 'code': code.strip(), 'enable': False}
                 self._breakpoint_infos.append(info)
                 check_box_str = f'{info["line_no"]:<5} {info["code"]}'
                 tag_id = f'breakpoint_check_box_id_{id}'
-                dpg.add_checkbox(label=check_box_str, tag=tag_id, parent='breakpoint_wnd_id', user_data=id, callback=self._callback)
+                dpg.add_checkbox(label=check_box_str, tag=tag_id, parent='breakpoint_wnd_id', user_data=id,
+                                 callback=self._callback)
                 dpg.add_tooltip(parent=dpg.last_item())
                 part_code = self._get_script_lines(self._user_module_codes, i + 1, surround_count=14)
-                dpg.add_text(part_code, parent=dpg.last_item(), wrap=800, color=[106,135,89, 255])
+                dpg.add_text(part_code, parent=dpg.last_item(), wrap=800, color=[106, 135, 89, 255])
                 id += 1
 
     def _is_breakpoint(self):
@@ -666,4 +707,32 @@ class DebugWindow(DpgApp):
                 return True
         else:
             return False
+
+    @staticmethod
+    def _load_source():
+        bot_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_template.py")
+        with open(bot_script, 'r', encoding='utf8') as f:
+            script_str = ''.join(f.readlines())
+        return script_str
+
+    def _create_script(self):
+        bot_class = dpg.get_value('bot_input_id')
+        app_name = dpg.get_value('app_name_input_id')
+        if bot_class == '':
+            self._show_message("错误信息", "请填写机器人类名！")
+            dpg.configure_item('save_script_button_id', show=False)
+        elif app_name == '':
+            self._show_message("错误信息", "请填写应用内部名！")
+            dpg.configure_item('save_script_button_id', show=False)
+        else:
+            script = self._template_script.replace('__BOT__', bot_class).replace('__APP_NAME__', app_name)
+            dpg.set_value('script_view_id', script)
+            dpg.configure_item('save_script_button_id', show=True)
+
+    def _save_script(self, file_name):
+        script = dpg.get_value('script_view_id')
+        with open(file_name, 'w', encoding='utf8') as f:
+            f.write(script)
+        self._show_message('操作提示', '文件已保存到 - {}'.format(file_name))
+        dpg.configure_item('save_script_button_id', show=False)
 

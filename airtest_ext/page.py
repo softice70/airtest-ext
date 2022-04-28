@@ -189,7 +189,6 @@ class Page:
             >>>     page = self.get_page('首页')
             >>>     page.touch_anchor('to_内容页', pos=touch_pos, auto_back=True)
             >>>     return True
-
         """
 
         if anchor_name not in self._anchors:

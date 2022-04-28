@@ -506,6 +506,13 @@ def write_excel(file_name, datas):
         raise_exception(DataFormatErrorException("数据格式错误，写Excel的数据必须是列表!"))
 
 
+def offScreen():
+    cmd ='adb shell dumpsys window policy^|grep mScreenOnFully'
+    lines = exec_cmd(cmd)
+    if lines.find('mScreenOnFully=true') >= 0:
+        exec_cmd("adb shell input keyevent 26")
+
+
 def _get_col_name_for_write_excel(datas):
     if datas and len(datas) > 0:
         if isinstance(datas[0], dict):

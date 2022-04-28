@@ -282,6 +282,7 @@ class AirtestBot:
                             self._data_filters[name].datas.clear()
 
                 if len(datas) > 0:
+                    print(f'获取到 {len(datas)} 条{data_name if data_name else ""}数据.')
                     return True, datas
                 else:
                     self._data_event.clear()
