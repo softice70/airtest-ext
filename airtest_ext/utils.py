@@ -464,7 +464,7 @@ def json_object_to_str(json_obj):
     :param json_obj: json对象
     :return: 序列化的json串
     """
-    return json.dumps(json_obj)
+    return json.dumps(json_obj, ensure_ascii=False)
 
 
 def write_excel(file_name, datas):
@@ -472,7 +472,7 @@ def write_excel(file_name, datas):
     写Excel文件
 
     :param file_name: 文件名
-    :param datass: 数据列表
+    :param datas: 数据列表
     :return: 无
     """
     if isinstance(datas, list):
@@ -486,19 +486,30 @@ def write_excel(file_name, datas):
                         sheet.write(0, c, col_names[c])
                     for r in range(len(datas)):
                         for c in range(len(col_names)):
-                            print(col_names[c], datas[r])
-                            sheet.write(r + 1, c, datas[r][col_names[c]])
+                            content = datas[r][col_names[c]] if isinstance(datas[r][col_names[c]], str) else json_object_to_str(datas[r][col_names[c]])
+                            if len(content) < 32767:
+                                sheet.write(r + 1, c, content)
+                            else:
+                                print(f"发现超长的数据：{len(content)}\n{json_object_to_str(content)}")
                 else:
                     row_no = 0
                     for i in range(len(datas)):
                         col_names = list(datas[i].keys())
                         for key in col_names:
-                            sheet.write(row_no, 0, str(key))
-                            sheet.write(row_no, 1, json_object_to_str(datas[i][key]))
-                            row_no += 1
+                            content = datas[i][key] if isinstance(datas[i][key], str) else json_object_to_str(datas[i][key])
+                            if len(content) < 32767:
+                                sheet.write(row_no, 0, str(key))
+                                sheet.write(row_no, 1, content)
+                                row_no += 1
+                            else:
+                                print(f"发现超长的数据：{len(content)}\n{json_object_to_str(content)}")
             else:
                 for r in range(len(datas)):
-                    sheet.write(r, 0, json_object_to_str(datas[r]))
+                    content = datas[r] if isinstance(datas[r], str) else json_object_to_str(datas[r])
+                    if len(content) < 32767:
+                        sheet.write(r, 0, content)
+                    else:
+                        print(f"发现超长的数据：{len(content)}\n{json_object_to_str(content)}")
             book.save(file_name)
         else:
             print("写数据失败，数据为空或长度为0!")
@@ -506,11 +517,45 @@ def write_excel(file_name, datas):
         raise_exception(DataFormatErrorException("数据格式错误，写Excel的数据必须是列表!"))
 
 
-def offScreen():
-    cmd ='adb shell dumpsys window policy^|grep mScreenOnFully'
-    lines = exec_cmd(cmd)
-    if lines.find('mScreenOnFully=true') >= 0:
-        exec_cmd("adb shell input keyevent 26")
+def write_txt(file_name, datas):
+    """
+    写txt文件
+
+    :param file_name: 文件名
+    :param datas: 数据或数据列表
+    :return: 无
+    """
+    if isinstance(datas, list):
+        if datas and len(datas) > 0:
+            with open(file_name, 'w', encoding='utf8') as f:
+                if isinstance(datas[0], dict) and _get_col_name_for_write_excel(datas) is None:
+                    for data in datas:
+                        col_names = list(data.keys())
+                        for key in col_names:
+                            content = data[key] if isinstance(data[key], str) else json_object_to_str(
+                                data[key])
+                            f.write(content)
+                            f.write('\n')
+
+                else:
+                    for data in datas:
+                        content = data if isinstance(data, str) else json_object_to_str(data)
+                        f.write(content)
+                        f.write('\n')
+        else:
+            print("写数据失败，数据为空或长度为0!")
+    else:
+        with open(file_name, 'w', encoding='utf8') as f:
+            content = datas if isinstance(datas, str) else json_object_to_str(datas)
+            f.write(content)
+            f.write('\n')
+
+
+# def offScreen():
+#     cmd ='adb shell dumpsys window policy^|grep mScreenOnFully'
+#     lines = exec_cmd(cmd)
+#     if lines.find('mScreenOnFully=true') >= 0:
+#         exec_cmd("adb shell input keyevent 26")
 
 
 def _get_col_name_for_write_excel(datas):
