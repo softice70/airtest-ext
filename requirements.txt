@@ -1,4 +1,4 @@
-airtest==1.2.4
+airtest>=1.2.4
 dearpygui>=1.5.1
 frida_hooks>=0.9.16
 mitmproxy>=7.0.4

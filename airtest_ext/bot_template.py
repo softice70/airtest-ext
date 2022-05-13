@@ -2,7 +2,9 @@
 
 from jsonpath import jsonpath
 from airtest_ext.airtest_bot import AirtestBot, Filter, Feature
-from airtest_ext.utils import *
+from airtest_ext.utils import dbg_pause, sleep, str_to_json_object, str_to_timestamp_10, str_to_timestamp_13, \
+    timestamp_13_to_str, timestamp_10_to_str, base64_decode, write_txt, write_excel, json_object_to_str
+from airtest_ext.template import Template
 
 
 # 需要替换:__BOT__  __APP_NAME__
@@ -11,7 +13,7 @@ from airtest_ext.utils import *
 class __BOT__(AirtestBot):
     def __init__(self, device_id='', app_name=None, start_mitmproxy=False, intercept_all=False, show_dbg_wnd=False):
         super(__BOT__, self).__init__(device_id=device_id, app_name=app_name, start_mitmproxy=start_mitmproxy,
-                                             intercept_all=intercept_all, show_dbg_wnd=show_dbg_wnd)
+                                      intercept_all=intercept_all, show_dbg_wnd=show_dbg_wnd)
         self._on_request_func = None
         self._on_response_func = self._on_response
         self._on_result_callback = None
