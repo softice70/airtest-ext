@@ -60,11 +60,9 @@ class Template(TemplateBase):
                 result["rectangle"] = rectangle
 
         G.LOGGING.debug("match result: %s", result)
-        if result is None:
-            return {'results': None, 'feature': self, 'screen': screen}
-        else:
-            focus_pos = TargetPos().getXY(result, self.target_pos)
-            return {'results': [result], 'pos': focus_pos, 'feature': self, 'screen': screen}
+        focus_pos = TargetPos().getXY(result, self.target_pos) if result else None
+        results = [result] if result else None
+        return dict(results=results, pos=focus_pos, feature=self, screen=screen)
 
     def match_all_in(self, screen, in_rect=None):
         image = self._imread()
@@ -87,11 +85,7 @@ class Template(TemplateBase):
                                  (result["rectangle"][2][0] + pos_left_top[0], result["rectangle"][2][1] + pos_left_top[1]),
                                  (result["rectangle"][3][0] + pos_left_top[0], result["rectangle"][3][1] + pos_left_top[1]))
                     result["rectangle"] = rectangle
-
-        if results is None:
-            return {'results': None, 'feature': self, 'screen': screen}
-        else:
-            return {'results': results, 'feature': self, 'screen': screen}
+        return dict(results=results, feature=self, screen=screen)
 
     def get_image(self):
         return self._imread()

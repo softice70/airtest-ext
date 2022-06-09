@@ -22,9 +22,6 @@ import math
 class DataFormatErrorException(BaseException): pass
 
 
-# Todo: 增加长期订阅数据、支持数据回调
-# Todo: 撰写文档
-
 
 # 注册的调试器
 _debuggers = {}

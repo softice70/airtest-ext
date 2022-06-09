@@ -13,9 +13,6 @@ from airtest_ext.utils import *
 
 
 # Todo: 将match_info封装称类MatchResult
-# Todo: 修改airtest内核多线程不安全问题
-# Todo: 增加Page类，并实现is_active
-# Todo: 增加依据模板脚本创建新脚本
 # Todo: 增加截获数据的展示与分析
 
 
