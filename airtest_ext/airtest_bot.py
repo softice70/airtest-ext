@@ -368,7 +368,7 @@ class AirtestBot:
             filters = filters if isinstance(filters, list) else [filters]
             for f in filters:
                 if f.data_name in self._data_filters:
-                    f.datas.append(self._data_filters[f.data_name].datas)
+                    f.datas = self._data_filters[f.data_name].datas
                 self._data_filters[f.data_name] = f
             self._data_event.clear()
 

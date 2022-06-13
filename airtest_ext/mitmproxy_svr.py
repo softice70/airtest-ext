@@ -39,8 +39,6 @@ class MitmDumpThread(threading.Thread):
                     "--no-ssl-insecure",
                     "--listen-port",
                     f"{self._port}",
-                    "--termlog_verbosity",
-                    "warn",
                     "--scripts",
                     self._script
                 ])

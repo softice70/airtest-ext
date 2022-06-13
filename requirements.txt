@@ -1,7 +1,7 @@
 airtest>=1.2.4
 dearpygui>=1.5.1
 frida_hooks>=0.9.16
-mitmproxy>=7.0.4
+mitmproxy~=7.0
 numpy>=1.19.3
 opencv_contrib_python>=4.5.5.62
 Pillow~=9.0.1
