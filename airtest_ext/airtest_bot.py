@@ -49,6 +49,10 @@ class Filter:
     def datas(self):
         return self._datas
 
+    @datas.setter  # 实现一个age相关的setter方法
+    def datas(self, datas):
+        self._datas = datas
+
 
 class Feature:
     """
