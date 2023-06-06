@@ -149,7 +149,7 @@ class AirtestBot:
         else:
             raise_exception(PageNotFoundException(f"程序异常：页面[{name}]没有定义，请检查有无定义该页面或是否加入到Bot类中!"))
 
-    def init(self):
+    def init(self, mitmproxy_port=8089, debug=True):
         if self._device_id == '':
             self._frida_agent.init_device(self._device_id)
             self._device_id = self._frida_agent.get_device_id()
@@ -160,7 +160,7 @@ class AirtestBot:
             start_app(self._app_name, device=self._device)
 
         if self._start_mitmproxy_svr:
-            self._start_mitmproxy()
+            self._start_mitmproxy(port=mitmproxy_port, debug=debug)
 
         # 设置日志级别
         logger = logging.getLogger("airtest")
@@ -393,7 +393,7 @@ class AirtestBot:
             datas = []
             with self._lock:
                 for name in data_names:
-                    if len(self._data_filters[name].datas) > 0:
+                    if name in self._data_filters and len(self._data_filters[name].datas) > 0:
                         datas += self._data_filters[name].datas
                         if self._data_filters[name].once_only:
                             del self._data_filters[name]
@@ -412,8 +412,8 @@ class AirtestBot:
                             dbg_pause()
                         return False, datas
 
-    def _start_mitmproxy(self):
-        self._mitmproxy_svr = MitmDumpThread("mitmdump", debug=True)
+    def _start_mitmproxy(self, port=8089, debug=False):
+        self._mitmproxy_svr = MitmDumpThread("mitmdump", port=port, debug=debug)
         self._mitmproxy_svr.start()
 
     def _stop_mitmproxy(self):
